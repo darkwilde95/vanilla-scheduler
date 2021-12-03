@@ -1,0 +1,285 @@
+[class^="ssche__"], 
+[class^="ssche__"] * {
+  outline: none;
+  box-sizing: content-box;
+}
+
+[class^="ssche__"]::-webkit-scrollbar, 
+[class^="ssche__"] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+[class^="ssche__"]::-webkit-scrollbar-thumb,
+[class^="ssche__"] ::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background-color: rgba(0,0,0,0.5);
+}
+
+.ssche__container {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 100%;
+  max-width: 100vw;
+  position: relative;
+  height: 100%;
+  max-height: 100vh;
+}
+
+.ssche__heading, .ssche__heading_controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  font-family: system-ui;
+}
+
+.ssche__heading {
+  position: sticky;
+  top: 0;
+  padding: 8px;
+  z-index: 2;
+}
+
+.ssche__heading h1 {
+  margin: 0;
+}
+
+.ssche__btn {
+  font-family: system-ui;
+  padding: 4px 16px;
+  text-transform: uppercase;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ssche__heading_button {
+  background-color: white;
+  border: 1px solid #0288d1;
+  color: #0288d1;
+}
+
+.ssche__heading_button:hover {
+  background-color: #edf8ff;
+}
+
+.ssche__heading_button:active {
+  color: white;
+  background-color: #0288d1;
+}
+
+.ssche__heading_controls {
+  color: #0288d1;
+}
+
+.ssche__control {
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 8px;
+  cursor: pointer;
+  padding: 4px 12px;
+  user-select: none;
+  font-weight: bold;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+.ssche__control:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.ssche__control_side {
+  border-radius: 50%;
+  padding: 0;
+  font-size: 18px;
+}
+
+.ssche__grid {
+  display: grid;
+  grid-template-rows: 32px;
+  grid-auto-rows: auto;
+  overflow: auto;
+}
+
+.ssche__grid_heading_cell {
+  display: flex;
+  position: sticky;
+  top: 0;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.55);
+  font-family: system-ui;
+  background-color: white;
+  box-shadow: 4px 4px 4px 0 #00000032;
+  z-index: 2;
+}
+
+.ssche__grid_heading_row {
+  display: contents;
+  
+}
+
+.ssche__cell {
+  display: flex;
+  background-color: white;
+  border: 1px solid #ebeced;
+  color: rgba(0, 0, 0, 0.55);
+  font-weight: 600;
+  font-family: system-ui;
+  overflow-x: visible;
+  flex-direction: column;
+  justify-content: flex-start;
+  position: relative;
+}
+
+.ssche__cell_label {
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.ssche__overlay {
+  display: flex;
+  background-color: #000000bf;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  justify-content: center;
+  align-items: center;
+  z-index: 3;
+}
+
+.ssche__modal_body {
+  display: flex;
+  flex-direction: column;
+  width: 500px;
+  background-color: white;
+  border-radius: 2px;
+  box-shadow: 4px 4px 4px 0 #0000001a;
+  z-index: 4;
+}
+
+.ssche__modal_title {
+  margin: 0;
+  padding: 4px 12px;
+  font-family: system-ui;
+  background-color: #0288d1;
+  color: white;
+  font-weight: normal;
+}
+
+.ssche__modal_content {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.ssche__modal_form_row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-top: 24px;
+  font-family: system-ui;
+}
+
+.ssche__modal_input_label {
+  min-width: 100px;
+  text-align: right;
+  margin-right: 24px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.ssche__modal_input {
+  width: 100%;
+  padding: 8px;
+  font-family: system-ui;
+}
+
+.ssche__modal_double_row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.ssche__modal_range_row {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.ssche__modal_range_row .ssche__range-input {
+  margin-right: 16px;
+}
+
+.ssche__modal_actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.ssche__modal_btn_cancel {
+  margin-right: 16px;
+  border: none;
+  background-color: transparent;
+  color: #0288d1;
+  border-radius: 2px;
+}
+
+.ssche__modal_btn_save {
+  border: none;
+  background-color: #0288d1;
+  color: white;
+  border-radius: 2px;
+}
+
+.ssche__modal_btn_delete {
+  border: none;
+  color: #ff584c;
+  border-radius: 2px;
+  background-color: white;
+}
+
+.ssche__modal_btn_cancel:hover {
+  background-color: #d9edf8; 
+}
+
+.ssche__modal_btn_save:hover {
+  background-color: #0299EB;
+}
+
+.ssche__modal_btn_save:disabled {
+  background-color: #0079bb;
+  cursor: not-allowed;
+}
+
+.ssche__modal_btn_delete:hover {
+  background-color: #ff584c4d;
+}
+
+.ssche__event {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 24px;
+  min-height: 24px;
+  background-color: #0288d1;
+  color: white;
+  border-radius: 5px;
+  z-index: 1;
+  font-size: 14px;
+  cursor: pointer;
+  box-sizing: border-box;
+  margin-bottom: 2px;
+  position: absolute;
+}

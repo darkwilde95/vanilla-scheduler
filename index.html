@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="./dist/scheduler.var.js"></script>
+  <title>Test</title>
+  <style>
+    body {
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id='calendar'></div>
+  <script>
+    var id = 1 // se necesita para simular creación en backend
+    const calendar = new Scheduler({
+      root: 'calendar',
+      rows: [
+        { id: '1', label: 'section 1' },
+        { id: '2', label: 'section 2' },
+        { id: '3', label: 'section 3' },
+        { id: '4', label: 'section 4' },
+        { id: '5', label: 'section 5' },
+        { id: '6', label: 'section 6' },
+        { id: '7', label: 'section 7' },
+        { id: '8', label: 'section 8' },
+        { id: '9', label: 'section 9' },
+        { id: '10', label: 'section 10' },
+        { id: '11', label: 'section 11' },
+        { id: '12', label: 'section 12' },
+      ],
+      lang: 'es',
+      onlyRead: false
+    })
+
+    calendar.onEventCreated(event => {
+      calendar.addEvent({ id: id++, ...event })
+    })
+
+    calendar.onEventEdited(event => {
+      calendar.removeEvent(event.id)
+      calendar.addEvent(event)
+    })
+
+    calendar.onEventDeleted(event => {
+      calendar.removeEvent(event.id)
+    })
+  </script>
+</body>
+
+</html>

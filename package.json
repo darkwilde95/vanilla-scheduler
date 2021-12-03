@@ -1,0 +1,25 @@
+{
+  "name": "st_scheduler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/scheduler.var.js",
+  "module": "./dist/scheduler.umd.js",
+  "scripts": {
+    "build:module": "webpack build --config ./webpack-umd.config.js",
+    "build:var": "webpack build --config ./webpack-var.config.js",
+    "build": "npm run build:module && npm run build:var"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "css-loader": "^6.5.1",
+    "style-loader": "^3.3.1",
+    "ts-loader": "^9.2.6",
+    "typescript": "^4.4.4",
+    "webpack": "^5.64.1",
+    "webpack-cli": "^4.9.1"
+  },
+  "dependencies": {
+    "sortablejs": "^1.14.0"
+  }
+}
