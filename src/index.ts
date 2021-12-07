@@ -44,7 +44,6 @@ class Scheduler {
   editCallback: Function | null = null
   sections: Section[] = []
   totalDays = 0
-  totalCells = 0
   title: HTMLHeadingElement | null = null
   lang = 'en'
   currentMonth = new Date().getMonth()
@@ -290,9 +289,12 @@ class Scheduler {
       if (root && currentGrid) {
         if (currentGrid) root.removeChild(currentGrid)
         const date = new Date(this.currentYear, this.currentMonth + 1, 0)
-        this.totalDays = date.getDate() + 1
-        this.totalCells = this.sections.length * this.totalDays
+        this.totalDays = date.getDate()
         const newGrid = document.createElement('div') as HTMLDivElement
+        newGrid.innerHTML = `
+          <div class="ssche__grid-head"></div>
+          <div class="ssche__grid-head day-labels"></div>
+        `
         newGrid.classList.add('ssche__grid')
         newGrid.id = `${this.rootId}-grid`
         root.append(newGrid)
@@ -528,9 +530,7 @@ class Scheduler {
     if (config.lang) this.lang = config.lang
     if (root) root.classList.add('ssche__container')
     else throw new Error("Root HTML Element doesn't exists.")
-    const date = new Date()
-    date.setMonth(date.getMonth() + 1)
-    date.setDate(0)
+    const date = new Date(this.currentYear, this.currentMonth + 1, 0)
     this.totalDays = date.getDate()
     root.innerHTML = `
       <div id="${this.rootId}-heading" class="ssche__heading"></div>
