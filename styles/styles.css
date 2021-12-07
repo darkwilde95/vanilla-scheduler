@@ -2,6 +2,7 @@
 [class^="ssche__"] * {
   outline: none;
   box-sizing: content-box;
+  font-family: system-ui;
 }
 
 [class^="ssche__"]::-webkit-scrollbar, 
@@ -101,52 +102,69 @@
   font-weight: bold;
 }
 
+/*----------------------------------------------------------------------------*/
+
 .ssche__grid {
   display: grid;
-  grid-template-rows: 32px;
+  grid-template-columns: 150px auto;
+  grid-template-rows: 40px;
   grid-auto-rows: auto;
   overflow: auto;
+  border-collapse: collapse;
+  min-width: 100%;
 }
 
-.ssche__grid_heading_cell {
-  display: flex;
-  position: sticky;
-  top: 0;
-  justify-content: center;
-  align-items: flex-end;
-  padding-bottom: 12px;
+.ssche__grid div {
+  background-color: white;
+}
+
+.ssche__grid div.day-labels, .ssche__grid div.section-label {
   font-weight: 600;
   color: rgba(0, 0, 0, 0.55);
-  font-family: system-ui;
-  background-color: white;
+}
+
+.ssche__grid .ssche__grid-head {
+  position: sticky;
+  top: 0;
   box-shadow: 4px 4px 4px 0 #00000032;
   z-index: 2;
 }
 
-.ssche__grid_heading_row {
-  display: contents;
-  
+.ssche__grid div.day-labels {
+  display: grid;
+  grid-template-rows: 40px;
 }
 
-.ssche__cell {
+.ssche__grid div.day-labels div {
   display: flex;
-  background-color: white;
-  border: 1px solid #ebeced;
-  color: rgba(0, 0, 0, 0.55);
-  font-weight: 600;
-  font-family: system-ui;
-  overflow-x: visible;
-  flex-direction: column;
-  justify-content: flex-start;
-  position: relative;
-}
-
-.ssche__cell_label {
-  align-items: center;
   justify-content: center;
-  min-height: 80px;
+  align-items: flex-end;
+  padding-bottom: 8px;
 }
 
+.ssche__grid div.section-label {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 72px;
+  padding-left: 16px;
+  border: 1px solid #ebeced;
+}
+
+.ssche__grid .ssche__cells {
+  position: absolute;
+  display: grid;
+  grid-auto-rows: auto;
+  height: 100%;
+  width: 100%;
+  border: none;
+}
+
+.ssche__grid .ssche__cells div {
+  border: 1px solid #ebeced;
+}
+
+/*-----------------------------------------------------------------*/
 .ssche__overlay {
   display: flex;
   background-color: #000000bf;

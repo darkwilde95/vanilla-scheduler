@@ -8,7 +8,7 @@ interface Section {
 
 interface ConfigObject {
   root: string
-  rows: Section[],
+  sections: Section[],
   lang?: string,
   onlyRead?: boolean
 }
@@ -42,8 +42,8 @@ class Scheduler {
   createCallback: Function | null = null
   deleteCallback: Function | null = null
   editCallback: Function | null = null
-  rows: Section[] = []
-  totalCols = 0
+  sections: Section[] = []
+  totalDays = 0
   totalCells = 0
   title: HTMLHeadingElement | null = null
   lang = 'en'
@@ -171,7 +171,7 @@ class Scheduler {
       </div>
     `
     body.appendChild(overlay)
-    this.appendSelectOptions(this.rows, document.getElementById(`${this.rootId}-section`) as HTMLSelectElement)
+    this.appendSelectOptions(this.sections, document.getElementById(`${this.rootId}-section`) as HTMLSelectElement)
     overlay.addEventListener('click', event => {
       const target = event.target as HTMLElement
       if (target.id === `${this.rootId}-modal`) this.closeModal()
@@ -290,8 +290,8 @@ class Scheduler {
       if (root && currentGrid) {
         if (currentGrid) root.removeChild(currentGrid)
         const date = new Date(this.currentYear, this.currentMonth + 1, 0)
-        this.totalCols = date.getDate() + 1
-        this.totalCells = this.rows.length * this.totalCols
+        this.totalDays = date.getDate() + 1
+        this.totalCells = this.sections.length * this.totalDays
         const newGrid = document.createElement('div') as HTMLDivElement
         newGrid.classList.add('ssche__grid')
         newGrid.id = `${this.rootId}-grid`
@@ -358,101 +358,59 @@ class Scheduler {
     })
   }
 
-  private createCell = (label: string | null, day?: number, section?: number) => {
-    const cell = document.createElement('div')
-    cell.classList.add('ssche__cell')
-    if (label) {
-      cell.appendChild(document.createTextNode(label))
-      cell.classList.add('ssche__cell_label')
-    } else {
-      new Sortable(cell, {
-        group: 'cell',
-        swapThreshold: 0.5,
-        dragClass: 'ssche__event-drag',
-        chosenClass: 'ssche__event-chosen',
-        handle: '.ssche__event-drag-control',
-        emptyInsertThreshold: 0,
-        onAdd: (e: any) => {
-          const event = e.item as HTMLDivElement
-          const eventComputed = this.events.find(ev => ev.id === event.dataset.id)
-          if (eventComputed) {
-            eventComputed.section = (section || 0) + 1
-            eventComputed.day1 = day || 1
-            const totalWidth = event.getClientRects()[0].width
-            eventComputed.day2 = (day || 0) + Math.round((totalWidth + 1) / this.cellWidth)
-            eventComputed.event.section = this.rows[(section || 0)].id
-            const date1 = new Date(this.currentYear, this.currentMonth, eventComputed.day1).toISOString()
-            const date2 = new Date(this.currentYear, this.currentMonth, eventComputed.day2).toISOString()
-            eventComputed.event.startDate = date1.substring(0, date1.indexOf('T'))
-            eventComputed.event.endDate = date2.substring(0, date1.indexOf('T'))
-            event.dataset.start = `${eventComputed.day1}`
-            event.dataset.end = `${eventComputed.day2}`
-            event.style.top = `${this.calculatePos(eventComputed)}px`
-            this.fixHeightFromChildren(e.to)
-          }
-        },
-        onRemove: (e: any) => this.fixHeightFromChildren(e.from),
-        onChange: (e: any) => {
-          const event = e.item as HTMLDivElement
-          event.style.top = '0px'
-          const eventComputed = this.events.find(ev => ev.id === event.dataset.id)
-          if (eventComputed) {
-            const totalWidth = event.getClientRects()[0].width
-            const duration = Math.round((totalWidth + 1) / this.cellWidth)
-            const lastDay = new Date(this.currentYear, this.currentMonth + 1, 0).getDate()
-            if (day) {
-              if (day + duration > lastDay) {
-                console.log('Debe encoger')
-                event.style.width = `${((lastDay - day + 1) * this.cellWidth) - 1}px`
-              } else if (duration < eventComputed.day2 - eventComputed.day1 &&
-                eventComputed.day2 - eventComputed.day1 > lastDay - day) {
-                console.log('Debe crecer')
-                event.style.width = `${((eventComputed.day2 - eventComputed.day1) * this.cellWidth) - 1}px`
-              }
-            }
-          }
-        }
-      })
-    }
-    return cell
-  }
-
   private createGrid = () => {
     const grid = document.getElementById(`${this.rootId}-grid`) as HTMLDivElement
-    grid.style.gridTemplateColumns = `150px repeat(${this.totalCols - 1}, minmax(32px, 1fr))`
 
-    for (let i = 0; i < this.totalCols; i++) {
-      let cell = document.createElement('div')
-      cell.classList.add('ssche__grid_heading_cell')
-      if (i > 0) cell.innerText = `${i}`
-      grid.appendChild(cell)
+    this.sections.forEach(s => {
+      const cellLabel = document.createElement('div')
+      cellLabel.classList.add('section-label')
+      cellLabel.innerText = s.label
+      const sectionSpaceCell = document.createElement('div')
+      sectionSpaceCell.classList.add('events-container')
+      sectionSpaceCell.style.position = 'relative'
+      grid.appendChild(cellLabel)
+      grid.appendChild(sectionSpaceCell)
+    })
+
+    const headingCell = grid.getElementsByClassName('day-labels')[0] as HTMLDivElement
+    headingCell.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(32px, 1fr))`
+
+    for (let i = 0; i < this.totalDays; i++) {
+      const cell = document.createElement('div')
+      cell.innerText = `${i + 1}`
+      headingCell.appendChild(cell)
     }
+    const sectionSpaceCell = grid.getElementsByClassName('events-container')
 
-    for (let i = 0; i < this.totalCells; i++) {
-      const sectionPos = Math.floor(i / this.totalCols)
-      const mod = i % this.totalCols
-      if (mod === 0) {
-        grid.appendChild(this.createCell(this.rows[sectionPos].label))
-      } else {
-        grid.appendChild(this.createCell(null, mod, sectionPos))
+    for (let i = 0; i < sectionSpaceCell.length; i++) {
+      const row = sectionSpaceCell[i]
+      const cells = document.createElement('div')
+      cells.classList.add('ssche__cells')
+      cells.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(32px, 1fr))`
+      for (let i = 0; i < this.totalDays; i++) {
+        cells.appendChild(document.createElement('div'))
+
       }
+      row.appendChild(cells)
     }
-    const aux = grid.childNodes[this.totalCols + 1] as HTMLDivElement
+
+
+    const aux = grid.childNodes[this.totalDays + 1] as HTMLDivElement
     this.cellWidth = aux.getClientRects()[0].width
-    window.onresize = () => {
-      this.cellWidth = aux.getClientRects()[0].width
-      const events = grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>
-      for (let i = 0; i < events.length; i++) {
-        const start = events[i].dataset['start'] || '0'
-        const end = events[i].dataset['end'] || '0'
-        const range = +end - +start
-        events[i].style.width = `${this.cellWidth * (range > 0 ? range : 1)}px`
-      }
-    }
+    // window.onresize = () => {
+    //   this.cellWidth = aux.getClientRects()[0].width
+    //   const events = grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>
+    //   for (let i = 0; i < events.length; i++) {
+    //     const start = events[i].dataset['start'] || '0'
+    //     const end = events[i].dataset['end'] || '0'
+    //     const range = +end - +start
+    //     events[i].style.width = `${this.cellWidth * (range > 0 ? range : 1)}px`
+    //   }
+    // }
   }
 
   private computeEvent = (event: EventScheduler): EventComputed => {
-    const section = this.rows.map(s => s.id).indexOf(event.section) + 1
+    const section = this.sections.map(s => s.id).indexOf(event.section) + 1
     const d1 = event.startDate.split('-')
     const d2 = event.endDate.split('-')
     const date1 = new Date(+d1[0], +d1[1] - 1, +d1[2])
@@ -479,9 +437,9 @@ class Scheduler {
       let rightMatch = false
       let centralMatch = false
       let startCurr = this.currentMonth === curr.month1 ? curr.day1 : 1
-      let endCurr = this.currentMonth === curr.month2 ? curr.day2 : this.totalCols
+      let endCurr = this.currentMonth === curr.month2 ? curr.day2 : this.totalDays
       let startEv = this.currentMonth === event.month1 ? event.day1 : 1
-      let endEv = this.currentMonth === event.month2 ? event.day2 : this.totalCols
+      let endEv = this.currentMonth === event.month2 ? event.day2 : this.totalDays
       if (curr.month1 !== curr.month2 || event.month1 !== event.month2) {
         // Matchs mes con inicios y finales diferentes
         leftMatch = endEv > startCurr && startEv < startCurr
@@ -534,8 +492,8 @@ class Scheduler {
       newEvent.classList.add('ssche__event')
       newEvent.dataset['id'] = `${event.event.id}`
       let start = event.month1 !== this.currentMonth ? 1 : event.day1
-      let end = event.month2 !== this.currentMonth ? this.totalCols : event.day2
-      let pos = this.totalCols * event.section + start
+      let end = event.month2 !== this.currentMonth ? this.totalDays : event.day2
+      let pos = this.totalDays * event.section + start
       let range = 0
       newEvent.dataset['start'] = `${start}`
       newEvent.dataset['end'] = `${end}`
@@ -566,18 +524,20 @@ class Scheduler {
     this.rootId = config.root
     this.onlyRead = config.onlyRead || false
     const root = document.getElementById(this.rootId)
-    this.rows = config.rows
+    this.sections = config.sections
     if (config.lang) this.lang = config.lang
     if (root) root.classList.add('ssche__container')
     else throw new Error("Root HTML Element doesn't exists.")
     const date = new Date()
     date.setMonth(date.getMonth() + 1)
     date.setDate(0)
-    this.totalCols = date.getDate() + 1
-    this.totalCells = this.rows.length * this.totalCols
+    this.totalDays = date.getDate()
     root.innerHTML = `
       <div id="${this.rootId}-heading" class="ssche__heading"></div>
-      <div id="${this.rootId}-grid" class="ssche__grid"></div>
+      <div id="${this.rootId}-grid" class="ssche__grid">
+        <div class="ssche__grid-head"></div>
+        <div class="ssche__grid-head day-labels"></div>
+      </div>
     `
     this.createHeading()
     this.createGrid()
