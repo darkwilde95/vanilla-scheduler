@@ -39,7 +39,7 @@
     })
 
     calendar.onEventCreated(event => {
-      calendar.addEvent({ id: id++, ...event })
+      calendar.addEvent({ id: `${id++}`, ...event })
     })
 
     calendar.onEventEdited(event => {

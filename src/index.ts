@@ -1,3 +1,4 @@
+import Sortable from 'sortablejs'
 import '../styles/styles.css'
 
 interface Section {
@@ -312,13 +313,13 @@ class Scheduler {
         <h1 id="${this.rootId}-title">${this.getTextLang('months')[this.currentMonth]} ${this.currentYear}</h1>
         <div class="ssche__heading_controls">
           <div id="${this.rootId}-left-control" class="ssche__control ssche__control_side">
-            <
+            &#129136;
           </div>
           <div id="${this.rootId}-present-control" class="ssche__control">
             ${this.getTextLang('actions').present}
           </div>
           <div id="${this.rootId}-right-control" class="ssche__control ssche__control_side">
-            >
+            &#129138;
           </div>
         </div>
       `
@@ -357,12 +358,61 @@ class Scheduler {
     })
   }
 
-  private createCell = (label: string | null) => {
+  private createCell = (label: string | null, day?: number, section?: number) => {
     const cell = document.createElement('div')
     cell.classList.add('ssche__cell')
     if (label) {
       cell.appendChild(document.createTextNode(label))
       cell.classList.add('ssche__cell_label')
+    } else {
+      new Sortable(cell, {
+        group: 'cell',
+        swapThreshold: 0.5,
+        dragClass: 'ssche__event-drag',
+        chosenClass: 'ssche__event-chosen',
+        handle: '.ssche__event-drag-control',
+        emptyInsertThreshold: 0,
+        onAdd: (e: any) => {
+          const event = e.item as HTMLDivElement
+          const eventComputed = this.events.find(ev => ev.id === event.dataset.id)
+          if (eventComputed) {
+            eventComputed.section = (section || 0) + 1
+            eventComputed.day1 = day || 1
+            const totalWidth = event.getClientRects()[0].width
+            eventComputed.day2 = (day || 0) + Math.round((totalWidth + 1) / this.cellWidth)
+            eventComputed.event.section = this.rows[(section || 0)].id
+            const date1 = new Date(this.currentYear, this.currentMonth, eventComputed.day1).toISOString()
+            const date2 = new Date(this.currentYear, this.currentMonth, eventComputed.day2).toISOString()
+            eventComputed.event.startDate = date1.substring(0, date1.indexOf('T'))
+            eventComputed.event.endDate = date2.substring(0, date1.indexOf('T'))
+            event.dataset.start = `${eventComputed.day1}`
+            event.dataset.end = `${eventComputed.day2}`
+            event.style.top = `${this.calculatePos(eventComputed)}px`
+            this.fixHeightFromChildren(e.to)
+          }
+        },
+        onRemove: (e: any) => this.fixHeightFromChildren(e.from),
+        onChange: (e: any) => {
+          const event = e.item as HTMLDivElement
+          event.style.top = '0px'
+          const eventComputed = this.events.find(ev => ev.id === event.dataset.id)
+          if (eventComputed) {
+            const totalWidth = event.getClientRects()[0].width
+            const duration = Math.round((totalWidth + 1) / this.cellWidth)
+            const lastDay = new Date(this.currentYear, this.currentMonth + 1, 0).getDate()
+            if (day) {
+              if (day + duration > lastDay) {
+                console.log('Debe encoger')
+                event.style.width = `${((lastDay - day + 1) * this.cellWidth) - 1}px`
+              } else if (duration < eventComputed.day2 - eventComputed.day1 &&
+                eventComputed.day2 - eventComputed.day1 > lastDay - day) {
+                console.log('Debe crecer')
+                event.style.width = `${((eventComputed.day2 - eventComputed.day1) * this.cellWidth) - 1}px`
+              }
+            }
+          }
+        }
+      })
     }
     return cell
   }
@@ -379,11 +429,13 @@ class Scheduler {
     }
 
     for (let i = 0; i < this.totalCells; i++) {
-      grid.appendChild(this.createCell(
-        i % this.totalCols === 0 ?
-          this.rows[Math.floor(i / this.totalCols)].label
-          : null
-      ))
+      const sectionPos = Math.floor(i / this.totalCols)
+      const mod = i % this.totalCols
+      if (mod === 0) {
+        grid.appendChild(this.createCell(this.rows[sectionPos].label))
+      } else {
+        grid.appendChild(this.createCell(null, mod, sectionPos))
+      }
     }
     const aux = grid.childNodes[this.totalCols + 1] as HTMLDivElement
     this.cellWidth = aux.getClientRects()[0].width
@@ -475,10 +527,12 @@ class Scheduler {
     if (!grid) throw new Error("Grid doesn't exists.")
     else {
       const newEvent = document.createElement('div')
+      newEvent.innerHTML = `
+        <span class="ssche__event-drag-control">&#8759;</span>
+        <span class="ssche__event-desc">${event.event.description}</span>
+      `
       newEvent.classList.add('ssche__event')
       newEvent.dataset['id'] = `${event.event.id}`
-      newEvent.innerText = event.event.description
-      newEvent.draggable = true
       let start = event.month1 !== this.currentMonth ? 1 : event.day1
       let end = event.month2 !== this.currentMonth ? this.totalCols : event.day2
       let pos = this.totalCols * event.section + start
@@ -486,7 +540,8 @@ class Scheduler {
       newEvent.dataset['start'] = `${start}`
       newEvent.dataset['end'] = `${end}`
       range = end - start
-      newEvent.style.width = `${(this.cellWidth * range) - 1}px`
+      const width = this.cellWidth * range - 1
+      newEvent.style.width = `${width > 0 ? width : this.cellWidth - 1}px`
       newEvent.addEventListener('click', () => this.openModal(event.event))
       newEvent.style.top = `${this.calculatePos(event)}px`
       const cell = grid.childNodes[pos] as HTMLDivElement
@@ -541,13 +596,12 @@ class Scheduler {
   }
 
   public removeEvent = (id: string | null) => {
-    if (id == null) throw new Error(`Id not valid: ${id}`)
+    if (id === null) throw new Error(`Id not valid: ${id}`)
     else {
       const toRemove = document.querySelector(`div.ssche__event[data-id="${id}"]`) as HTMLDivElement
       if (toRemove === null) throw new Error(`No events with id: ${id}`)
       else {
         const parent = toRemove.parentElement as HTMLDivElement
-        const key = `${this.currentYear}-${this.currentMonth}`
         this.events = this.events.filter(e => e.id !== id)
         parent.removeChild(toRemove)
         this.fixHeightFromChildren(parent)

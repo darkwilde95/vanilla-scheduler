@@ -98,6 +98,7 @@
   border-radius: 50%;
   padding: 0;
   font-size: 18px;
+  font-weight: bold;
 }
 
 .ssche__grid {
@@ -269,7 +270,6 @@
 
 .ssche__event {
   display: flex;
-  justify-content: center;
   align-items: center;
   height: 24px;
   min-height: 24px;
@@ -282,4 +282,30 @@
   box-sizing: border-box;
   margin-bottom: 2px;
   position: absolute;
+  overflow: hidden;
+}
+
+.ssche__event-drag {
+  opacity: 0;
+  cursor: move;
+}
+
+.ssche__event-chosen {
+  border: 1px solid white;
+}
+
+.ssche__event-drag-control {
+  cursor: move;
+  padding: 0 8px;
+  height: 100%;
+  visibility: hidden;
+}
+
+.ssche__event:hover .ssche__event-drag-control {
+  visibility: visible;
+}
+
+.ssche__event-desc {
+  height: 100%;
+  user-select: none;
 }
