@@ -1,4 +1,4 @@
-import Sortable from 'sortablejs'
+// import Sortable from 'sortablejs'
 import '../styles/styles.css'
 
 interface Section {
@@ -26,12 +26,10 @@ interface EventScheduler {
 interface EventComputed {
   id: string
   event: EventScheduler
-  year1: number
-  year2: number
-  month1: number
-  month2: number
-  day1: number
-  day2: number,
+  startDay: number
+  endDay: number
+  start: number
+  end: number
   section: number
 }
 
@@ -50,6 +48,7 @@ class Scheduler {
   currentYear = new Date().getFullYear()
   rootId: string | null = null
   events: EventComputed[] = []
+  drawedEvents: { [key: string]: EventComputed } = {}
   langs: { [key: string]: any } = {
     en: {
       months: [
@@ -271,14 +270,12 @@ class Scheduler {
   }
 
   private isDrawableNow = (e: EventComputed) => {
-    if (e.year1 > this.currentYear || e.year2 < this.currentYear) return false
-    const sameYear = e.year1 === e.year2
-    if (sameYear && (this.currentMonth < e.month1 || e.month2 < this.currentMonth)) return false
-    if (!sameYear) {
-      if (this.currentYear === e.year1 && this.currentMonth < e.month1) return false
-      if (this.currentYear === e.year2 && this.currentMonth > e.month2) return false
-    }
-    return true
+    const startLimit = new Date(this.currentYear, this.currentMonth, 1).getTime()
+    const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
+    const leftMatch = e.start < startLimit && e.end > startLimit
+    const centralMatch = e.start >= startLimit && e.end <= endLimit
+    const rightMatch = e.start < endLimit && e.end > endLimit
+    return leftMatch || centralMatch || rightMatch
   }
 
   private updateCalendar = () => {
@@ -299,7 +296,11 @@ class Scheduler {
         newGrid.id = `${this.rootId}-grid`
         root.append(newGrid)
         this.createGrid()
-        this.events.filter(e => this.isDrawableNow(e)).forEach(e => this.drawEvent(e))
+        this.drawedEvents = {}
+        this.events.filter(e => this.isDrawableNow(e)).forEach(e => {
+          this.drawedEvents[e.id] = e
+          this.drawEvent(e)
+        })
       }
     } else throw new Error("Root HTML Element doesn't exists.")
   }
@@ -364,14 +365,14 @@ class Scheduler {
     const grid = document.getElementById(`${this.rootId}-grid`) as HTMLDivElement
 
     this.sections.forEach(s => {
-      const cellLabel = document.createElement('div')
-      cellLabel.classList.add('section-label')
-      cellLabel.innerText = s.label
-      const sectionSpaceCell = document.createElement('div')
-      sectionSpaceCell.classList.add('events-container')
-      sectionSpaceCell.style.position = 'relative'
-      grid.appendChild(cellLabel)
-      grid.appendChild(sectionSpaceCell)
+      const sectionLabel = document.createElement('div')
+      sectionLabel.classList.add('section-label')
+      sectionLabel.innerText = s.label
+      const eventsContainer = document.createElement('div')
+      eventsContainer.classList.add('events-container')
+      eventsContainer.style.position = 'relative'
+      grid.appendChild(sectionLabel)
+      grid.appendChild(eventsContainer)
     })
 
     const headingCell = grid.getElementsByClassName('day-labels')[0] as HTMLDivElement
@@ -382,37 +383,36 @@ class Scheduler {
       cell.innerText = `${i + 1}`
       headingCell.appendChild(cell)
     }
-    const sectionSpaceCell = grid.getElementsByClassName('events-container')
 
-    for (let i = 0; i < sectionSpaceCell.length; i++) {
-      const row = sectionSpaceCell[i]
+    const eventsContainer = Array.from(grid.getElementsByClassName('events-container') as HTMLCollectionOf<HTMLDivElement>)
+
+    eventsContainer.forEach(ec => {
       const cells = document.createElement('div')
       cells.classList.add('ssche__cells')
       cells.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(32px, 1fr))`
       for (let i = 0; i < this.totalDays; i++) {
         cells.appendChild(document.createElement('div'))
-
       }
-      row.appendChild(cells)
-    }
+      ec.appendChild(cells)
+    })
 
-
-    const aux = grid.childNodes[this.totalDays + 1] as HTMLDivElement
+    // Resize events
+    const aux = document.getElementsByClassName('ssche__cells')[0].childNodes[0] as HTMLDivElement
     this.cellWidth = aux.getClientRects()[0].width
-    // window.onresize = () => {
-    //   this.cellWidth = aux.getClientRects()[0].width
-    //   const events = grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>
-    //   for (let i = 0; i < events.length; i++) {
-    //     const start = events[i].dataset['start'] || '0'
-    //     const end = events[i].dataset['end'] || '0'
-    //     const range = +end - +start
-    //     events[i].style.width = `${this.cellWidth * (range > 0 ? range : 1)}px`
-    //   }
-    // }
+    window.addEventListener('resize', () => {
+      this.cellWidth = aux.getClientRects()[0].width
+      const events = Array.from(grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
+      events.forEach(ev => {
+        this.calcLeftSize(this.drawedEvents[ev.dataset.id as string])
+        const { left, size } = this.calcLeftSize(this.drawedEvents[ev.dataset.id as string])
+        ev.style.left = `${left}px`
+        ev.style.width = `${size}px`
+      })
+    })
   }
 
   private computeEvent = (event: EventScheduler): EventComputed => {
-    const section = this.sections.map(s => s.id).indexOf(event.section) + 1
+    const section = this.sections.map(s => s.id).indexOf(event.section)
     const d1 = event.startDate.split('-')
     const d2 = event.endDate.split('-')
     const date1 = new Date(+d1[0], +d1[1] - 1, +d1[2])
@@ -421,39 +421,23 @@ class Scheduler {
       id: event.id || '',
       event,
       section,
-      day1: date1.getDate(),
-      day2: date2.getDate(),
-      month1: date1.getMonth(),
-      month2: date2.getMonth(),
-      year1: date1.getFullYear(),
-      year2: date2.getFullYear(),
+      startDay: date1.getDate(),
+      endDay: date2.getDate(),
+      start: date1.getTime(),
+      end: date2.getTime()
     }
   }
 
-  private calculatePos = (event: EventComputed) => {
+  private calcTop = (event: EventComputed) => {
     const sectionEvents = this.events.filter(e => e.section === event.section)
-    if (sectionEvents.length === 0) return 0
-    const matches = sectionEvents.reduce((acc, curr) => {
-      if (curr.id === event.id) return acc
-      let leftMatch = false
-      let rightMatch = false
-      let centralMatch = false
-      let startCurr = this.currentMonth === curr.month1 ? curr.day1 : 1
-      let endCurr = this.currentMonth === curr.month2 ? curr.day2 : this.totalDays
-      let startEv = this.currentMonth === event.month1 ? event.day1 : 1
-      let endEv = this.currentMonth === event.month2 ? event.day2 : this.totalDays
-      if (curr.month1 !== curr.month2 || event.month1 !== event.month2) {
-        // Matchs mes con inicios y finales diferentes
-        leftMatch = endEv > startCurr && startEv < startCurr
-        rightMatch = startEv < endCurr && endEv > endCurr
-        centralMatch = startEv >= startCurr && endEv <= endCurr
-      } else {
-        // Estos sirven cuando es el mismo mes
-        leftMatch = event.day2 > curr.day1 && event.day1 < curr.day1
-        rightMatch = event.day1 < curr.day2 && event.day2 > curr.day2
-        centralMatch = event.day1 >= curr.day1 && event.day2 <= curr.day2
-      }
-      if (leftMatch || rightMatch || centralMatch) return [...acc, curr]
+    if (sectionEvents.length === 0) return 1
+    const matches = sectionEvents.reduce((acc, sectionEvent) => {
+      if (sectionEvent.id === event.id) return acc
+      const leftMatch = sectionEvent.start < event.start && sectionEvent.end > event.start
+      const centralMatch1 = sectionEvent.start >= event.start && sectionEvent.end <= event.end
+      const centralMatch2 = sectionEvent.start < event.start && sectionEvent.end > event.end
+      const rightMatch = sectionEvent.start < event.end && sectionEvent.end > event.end
+      if (leftMatch || rightMatch || centralMatch1 || centralMatch2) return [...acc, sectionEvent]
       return acc
     }, [] as EventComputed[])
 
@@ -462,24 +446,34 @@ class Scheduler {
       const e = document.querySelector(`div.ssche__event[data-id="${curr.id}"]`) as HTMLDivElement
       if (e === null) return acc
       const topString = e.style.top
-      return [...acc, +topString.substring(0, topString.length - 2)]
+      const topNumber = +topString.substring(0, topString.length - 2)
+      return [...acc, topNumber - 1]
     }, [] as number[]).sort((a, b) => a - b)
 
-    // Caso base (Si no hay eventos pintados)
-    if (tops.length === 0) return 0
+    // Casos base 
+    if (tops.length === 0) return 1
+    if (tops.length === 1) return tops[0] + 27
 
     // Buscar posibles espacios
-    let top = 0
     for (let i = 1; i < tops.length; i++) {
-      top = tops[i]
       if (tops[i] > tops[i - 1] + 26) {
-        top = tops[i - 1] + 26
-        break
+        return tops[i - 1] + 27
       }
     }
+    return tops[tops.length - 1] + 27
+  }
 
-    if (top === tops[tops.length - 1]) top += 26
-    return top
+  private calcLeftSize = (event: EventComputed) => {
+    const startLimit = new Date(this.currentYear, this.currentMonth, 1).getTime()
+    const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
+    const start = event.start < startLimit ? 0 : event.startDay - 1
+    const end = event.end > endLimit ? this.totalDays : event.endDay - 1
+    const range = end - start
+    const width = this.cellWidth * range - 1
+    return {
+      left: start * this.cellWidth + 1,
+      size: (width > 0 ? width : this.cellWidth) - 1,
+    }
   }
 
   private drawEvent = (event: EventComputed) => {
@@ -491,35 +485,29 @@ class Scheduler {
         <span class="ssche__event-drag-control">&#8759;</span>
         <span class="ssche__event-desc">${event.event.description}</span>
       `
+      newEvent.draggable = true
       newEvent.classList.add('ssche__event')
       newEvent.dataset['id'] = `${event.event.id}`
-      let start = event.month1 !== this.currentMonth ? 1 : event.day1
-      let end = event.month2 !== this.currentMonth ? this.totalDays : event.day2
-      let pos = this.totalDays * event.section + start
-      let range = 0
-      newEvent.dataset['start'] = `${start}`
-      newEvent.dataset['end'] = `${end}`
-      range = end - start
-      const width = this.cellWidth * range - 1
-      newEvent.style.width = `${width > 0 ? width : this.cellWidth - 1}px`
       newEvent.addEventListener('click', () => this.openModal(event.event))
-      newEvent.style.top = `${this.calculatePos(event)}px`
-      const cell = grid.childNodes[pos] as HTMLDivElement
-      this.fixHeightFromChildren(cell)
-      cell.appendChild(newEvent)
+      newEvent.style.top = `${this.calcTop(event)}px`
+      const { left, size } = this.calcLeftSize(event)
+      newEvent.style.left = `${left}px`
+      newEvent.style.width = `${size}px`
+      const section = grid.getElementsByClassName('events-container')[event.section] as HTMLDivElement
+      section.appendChild(newEvent)
+      this.fixHeightFromChildren(section)
     }
   }
 
-  private fixHeightFromChildren = (cell: HTMLDivElement) => {
-    const children = cell.childNodes
+  private fixHeightFromChildren = (eventsContainer: HTMLDivElement) => {
+    const children = Array.from(eventsContainer.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
     let maxTop = 0
-    children.forEach(n => {
-      const child = n as HTMLDivElement
-      const top = child.style.top || '0px'
+    children.forEach(ch => {
+      const top = ch.style.top || '0px'
       const topValue = +top.substring(0, top.length - 2)
       if (maxTop < topValue) maxTop = topValue
     })
-    cell.style.minHeight = `${maxTop + 26}px`
+    eventsContainer.style.minHeight = `${maxTop + 26}px`
   }
 
   constructor(config: ConfigObject) {
@@ -551,7 +539,10 @@ class Scheduler {
 
   public addEvent = (event: EventScheduler) => {
     const computedEvent = this.computeEvent(event)
-    if (this.isDrawableNow(computedEvent)) this.drawEvent(computedEvent)
+    if (this.isDrawableNow(computedEvent)) {
+      this.drawEvent(computedEvent)
+      this.drawedEvents[computedEvent.id] = computedEvent
+    }
     this.events.push(computedEvent)
   }
 
@@ -563,7 +554,13 @@ class Scheduler {
       else {
         const parent = toRemove.parentElement as HTMLDivElement
         this.events = this.events.filter(e => e.id !== id)
+        delete this.drawedEvents[id]
         parent.removeChild(toRemove)
+        const sectionEvents = Array.from(parent.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
+        sectionEvents.forEach(se => {
+          console.log(se)
+          se.style.top = `${this.calcTop(this.drawedEvents[se.dataset.id as string])}px`
+        })
         this.fixHeightFromChildren(parent)
       }
     }
