@@ -1,4 +1,3 @@
-// import Sortable from 'sortablejs'
 import '../styles/styles.css'
 
 interface Section {
@@ -49,6 +48,7 @@ class Scheduler {
   rootId: string | null = null
   events: EventComputed[] = []
   drawedEvents: { [key: string]: EventComputed } = {}
+  auxDrag: HTMLDivElement | null = null
   langs: { [key: string]: any } = {
     en: {
       months: [
@@ -88,12 +88,15 @@ class Scheduler {
     }
   }
 
+  // Get text on current lang (langs prop has texts)
   private getTextLang = (key: string) => this.langs[this.lang][key]
 
+  // Event for close modal (reused)
   private closeModalEvent = (event: KeyboardEvent) => {
     if (event.key === 'Escape') this.closeModal()
   }
 
+  // Append options for select html
   private appendSelectOptions = (options: Section[], select: HTMLSelectElement) => {
     const defaultOpt = document.createElement('option') as HTMLOptionElement
     defaultOpt.innerText = '-'
@@ -107,7 +110,10 @@ class Scheduler {
     })
   }
 
+  // Draw modal for create an edit (if event is not null => edit mode)
   private openModal = (event?: EventScheduler) => {
+
+    // Draw modal body and overlay
     const body = document.getElementsByTagName('body')[0]
     const overlay = document.createElement('div')
     overlay.id = `${this.rootId}-modal`
@@ -170,10 +176,14 @@ class Scheduler {
     `
     body.appendChild(overlay)
     this.appendSelectOptions(this.sections, document.getElementById(`${this.rootId}-section`) as HTMLSelectElement)
+
+    // Close modal when click overlay
     overlay.addEventListener('click', event => {
       const target = event.target as HTMLElement
       if (target.id === `${this.rootId}-modal`) this.closeModal()
     })
+
+    // Event on cancel button close modal too
     const cancelButton = document.getElementById(`${this.rootId}-modal-cancel`) as HTMLButtonElement
     cancelButton.addEventListener('click', this.closeModal, true)
     if (this.onlyRead) cancelButton.style.marginRight = '0px'
@@ -188,7 +198,7 @@ class Scheduler {
     const saveButton = document.getElementById(`${this.rootId}-modal-save`) as HTMLButtonElement
 
     if (!this.onlyRead) {
-
+      // Validations in modal form
       startDate.addEventListener('change', e => {
         endDate.min = (e.target as HTMLInputElement).value
         saveButton.disabled = startDate.value === '' || endDate.value === ''
@@ -216,6 +226,8 @@ class Scheduler {
       })
       saveButton.disabled = startDate.value === '' || endDate.value === ''
         || section.value === '' || description.value === ''
+
+      // Event for generate data from form for use in callbacks
       saveButton.addEventListener('click', () => {
         const eventData: { [key: string]: any } = {
           description: description.value,
@@ -236,6 +248,7 @@ class Scheduler {
         this.closeModal()
       })
     } else {
+      // Only read mode disables the data inputs
       description.disabled = true
       section.disabled = true
       startTime.disabled = true
@@ -243,6 +256,8 @@ class Scheduler {
       endTime.disabled = true
       endDate.disabled = true
     }
+
+    // Modal in edit mode
     if (event) {
       description.value = event.description
       section.value = event.section
@@ -262,6 +277,7 @@ class Scheduler {
     }
   }
 
+  // Actions for close modal
   private closeModal = () => {
     const body = document.getElementsByTagName('body')[0]
     const modal = document.getElementById(`${this.rootId}-modal`)
@@ -269,6 +285,7 @@ class Scheduler {
     document.removeEventListener('keydown', this.closeModalEvent, true)
   }
 
+  // Verify if event is drawable with current month and year
   private isDrawableNow = (e: EventComputed) => {
     const startLimit = new Date(this.currentYear, this.currentMonth, 1).getTime()
     const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
@@ -278,7 +295,8 @@ class Scheduler {
     return leftMatch || centralMatch || rightMatch
   }
 
-  private updateCalendar = () => {
+  // Update scheduler when change current month in scheduler controls
+  private updateScheduler = () => {
     if (this.title) this.title.innerText = `${this.getTextLang('months')[this.currentMonth]} ${this.currentYear}`
     const currentGrid = document.getElementById(`${this.rootId}-grid`)
     if (this.rootId) {
@@ -305,6 +323,7 @@ class Scheduler {
     } else throw new Error("Root HTML Element doesn't exists.")
   }
 
+  // Draw Scheduler controls 
   private createHeading = () => {
     const heading = document.getElementById(`${this.rootId}-heading`) as HTMLDivElement
     if (heading) {
@@ -341,7 +360,7 @@ class Scheduler {
         this.currentMonth = 11
         this.currentYear -= 1
       }
-      this.updateCalendar()
+      this.updateScheduler()
     })
     const rightControl = document.getElementById(`${this.rootId}-right-control`) as HTMLDivElement
     rightControl.addEventListener('click', () => {
@@ -350,20 +369,22 @@ class Scheduler {
         this.currentMonth = 0
         this.currentYear += 1
       }
-      this.updateCalendar()
+      this.updateScheduler()
     })
     const presentControl = document.getElementById(`${this.rootId}-present-control`) as HTMLDivElement
     presentControl.addEventListener('click', () => {
       const currentDate = new Date()
       this.currentMonth = currentDate.getMonth()
       this.currentYear = currentDate.getFullYear()
-      this.updateCalendar()
+      this.updateScheduler()
     })
   }
 
+  // Draw Grid
   private createGrid = () => {
     const grid = document.getElementById(`${this.rootId}-grid`) as HTMLDivElement
 
+    // Creating rows by # sections 
     this.sections.forEach(s => {
       const sectionLabel = document.createElement('div')
       sectionLabel.classList.add('section-label')
@@ -375,6 +396,7 @@ class Scheduler {
       grid.appendChild(eventsContainer)
     })
 
+    // Creating table head
     const headingCell = grid.getElementsByClassName('day-labels')[0] as HTMLDivElement
     headingCell.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(32px, 1fr))`
 
@@ -384,21 +406,39 @@ class Scheduler {
       headingCell.appendChild(cell)
     }
 
+    // Creating cells time limits and dragging zones
     const eventsContainer = Array.from(grid.getElementsByClassName('events-container') as HTMLCollectionOf<HTMLDivElement>)
-
-    eventsContainer.forEach(ec => {
+    eventsContainer.forEach((ec, index) => {
       const cells = document.createElement('div')
+      const dragZone = document.createElement('div')
       cells.classList.add('ssche__cells')
       cells.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(32px, 1fr))`
+      dragZone.classList.add('ssche__drag-zone')
       for (let i = 0; i < this.totalDays; i++) {
         cells.appendChild(document.createElement('div'))
       }
+
+      // Events for changes among dragging zones
+      dragZone.addEventListener('dragenter', e => {
+        const container = e.target as HTMLDivElement
+        if (this.auxDrag && container.classList.contains('ssche__drag-zone')) {
+          this.auxDrag.parentNode?.removeChild(this.auxDrag)
+          container.appendChild(this.auxDrag)
+          console.log(index)
+        }
+      })
+      dragZone.addEventListener('dragover', e => {
+        e.preventDefault()
+      })
+      ec.appendChild(dragZone)
       ec.appendChild(cells)
     })
 
-    // Resize events
+    // Get cell width for calculate times and event width
     const aux = document.getElementsByClassName('ssche__cells')[0].childNodes[0] as HTMLDivElement
     this.cellWidth = aux.getClientRects()[0].width
+
+    // Event for resize events width when window resizes
     window.addEventListener('resize', () => {
       this.cellWidth = aux.getClientRects()[0].width
       const events = Array.from(grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
@@ -411,6 +451,7 @@ class Scheduler {
     })
   }
 
+  // Get event data for easy calc later
   private computeEvent = (event: EventScheduler): EventComputed => {
     const section = this.sections.map(s => s.id).indexOf(event.section)
     const d1 = event.startDate.split('-')
@@ -428,20 +469,26 @@ class Scheduler {
     }
   }
 
+  // Calc 'top' css prop for vertical positioning in same section
   private calcTop = (event: EventComputed) => {
+    // Get section events
     const sectionEvents = this.events.filter(e => e.section === event.section)
+
+    // No section events -> don't need calc anymore
     if (sectionEvents.length === 0) return 1
+
+    // Calc all possible date matches of date in section events
     const matches = sectionEvents.reduce((acc, sectionEvent) => {
       if (sectionEvent.id === event.id) return acc
       const leftMatch = sectionEvent.start < event.start && sectionEvent.end > event.start
-      const centralMatch1 = sectionEvent.start >= event.start && sectionEvent.end <= event.end
-      const centralMatch2 = sectionEvent.start < event.start && sectionEvent.end > event.end
+      const isContainer = sectionEvent.start >= event.start && sectionEvent.end <= event.end
+      const isContained = sectionEvent.start < event.start && sectionEvent.end > event.end
       const rightMatch = sectionEvent.start < event.end && sectionEvent.end > event.end
-      if (leftMatch || rightMatch || centralMatch1 || centralMatch2) return [...acc, sectionEvent]
+      if (leftMatch || rightMatch || isContainer || isContained) return [...acc, sectionEvent]
       return acc
     }, [] as EventComputed[])
 
-    // Obtener las medidas de top de los que ya se hayan pintado
+    // Get 'top' measurements for calc max
     const tops = matches.reduce((acc, curr) => {
       const e = document.querySelector(`div.ssche__event[data-id="${curr.id}"]`) as HTMLDivElement
       if (e === null) return acc
@@ -450,11 +497,13 @@ class Scheduler {
       return [...acc, topNumber - 1]
     }, [] as number[]).sort((a, b) => a - b)
 
-    // Casos base 
+    // No matches
     if (tops.length === 0) return 1
+
+    // Only 1 matchs
     if (tops.length === 1) return tops[0] + 27
 
-    // Buscar posibles espacios
+    // Looking for possible spaces
     for (let i = 1; i < tops.length; i++) {
       if (tops[i] > tops[i - 1] + 26) {
         return tops[i - 1] + 27
@@ -463,11 +512,15 @@ class Scheduler {
     return tops[tops.length - 1] + 27
   }
 
+  // Calc 'left' and 'width' css props for horizontal positioning and space
   private calcLeftSize = (event: EventComputed) => {
     const startLimit = new Date(this.currentYear, this.currentMonth, 1).getTime()
     const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
+    // Calc if limits are in current month o different
     const start = event.start < startLimit ? 0 : event.startDay - 1
     const end = event.end > endLimit ? this.totalDays : event.endDay - 1
+
+    // Calc 'width' size
     const range = end - start
     const width = this.cellWidth * range - 1
     return {
@@ -476,15 +529,13 @@ class Scheduler {
     }
   }
 
+  // Function for draw event (Only use when is sure a event must be drawed)
   private drawEvent = (event: EventComputed) => {
     const grid = document.getElementById(`${this.rootId}-grid`)
     if (!grid) throw new Error("Grid doesn't exists.")
     else {
       const newEvent = document.createElement('div')
-      newEvent.innerHTML = `
-        <span class="ssche__event-drag-control">&#8759;</span>
-        <span class="ssche__event-desc">${event.event.description}</span>
-      `
+      newEvent.innerText = event.event.description
       newEvent.draggable = true
       newEvent.classList.add('ssche__event')
       newEvent.dataset['id'] = `${event.event.id}`
@@ -493,12 +544,22 @@ class Scheduler {
       const { left, size } = this.calcLeftSize(event)
       newEvent.style.left = `${left}px`
       newEvent.style.width = `${size}px`
-      const section = grid.getElementsByClassName('events-container')[event.section] as HTMLDivElement
+
+      newEvent.addEventListener('dragstart', e => {
+        this.auxDrag = e.target as HTMLDivElement
+      })
+
+      newEvent.addEventListener('dragend', () => {
+        this.auxDrag = null
+      })
+
+      const section = grid.getElementsByClassName('ssche__drag-zone')[event.section] as HTMLDivElement
       section.appendChild(newEvent)
       this.fixHeightFromChildren(section)
     }
   }
 
+  // Adjust height of section row when overflows vertical space
   private fixHeightFromChildren = (eventsContainer: HTMLDivElement) => {
     const children = Array.from(eventsContainer.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
     let maxTop = 0
@@ -531,12 +592,14 @@ class Scheduler {
     this.createGrid()
   }
 
+  // Callbacks for backend use of user
   public onEventCreated = (cb: Function) => { this.createCallback = cb }
 
   public onEventDeleted = (cb: Function) => { this.deleteCallback = cb }
 
   public onEventEdited = (cb: Function) => { this.editCallback = cb }
 
+  // Add event to scheduler (mainly for user use)
   public addEvent = (event: EventScheduler) => {
     const computedEvent = this.computeEvent(event)
     if (this.isDrawableNow(computedEvent)) {
@@ -546,6 +609,7 @@ class Scheduler {
     this.events.push(computedEvent)
   }
 
+  // Remove event from scheduler (mainly for user use)
   public removeEvent = (id: string | null) => {
     if (id === null) throw new Error(`Id not valid: ${id}`)
     else {
@@ -557,6 +621,8 @@ class Scheduler {
         delete this.drawedEvents[id]
         parent.removeChild(toRemove)
         const sectionEvents = Array.from(parent.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
+
+        // Update section height when remove for reduce space
         sectionEvents.forEach(se => {
           console.log(se)
           se.style.top = `${this.calcTop(this.drawedEvents[se.dataset.id as string])}px`
@@ -567,4 +633,4 @@ class Scheduler {
   }
 }
 
-export default Scheduler as object
+export default Scheduler
