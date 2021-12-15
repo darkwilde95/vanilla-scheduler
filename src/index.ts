@@ -422,9 +422,17 @@ class Scheduler {
       dragZone.addEventListener('dragenter', e => {
         const container = e.target as HTMLDivElement
         if (this.auxDrag && container.classList.contains('ssche__drag-zone')) {
-          this.auxDrag.parentNode?.removeChild(this.auxDrag)
-          container.appendChild(this.auxDrag)
-          console.log(index)
+          const event = this.drawedEvents[this.auxDrag.dataset.id as string]
+          if (event.section !== index) {
+            this.auxDrag.style.top = '0px'
+            this.auxDrag.parentNode?.removeChild(this.auxDrag)
+            this.reorderEvents(event.section)
+            event.section = index
+            event.event.section = this.sections[index].id
+            this.auxDrag.style.top = `${this.calcTop(event)}px`
+            container.appendChild(this.auxDrag)
+            this.updateSectionHeight(container.parentNode as HTMLDivElement)
+          }
         }
       })
       dragZone.addEventListener('dragover', e => {
@@ -475,7 +483,7 @@ class Scheduler {
     const sectionEvents = this.events.filter(e => e.section === event.section)
 
     // No section events -> don't need calc anymore
-    if (sectionEvents.length === 0) return 1
+    if (sectionEvents.length === 0) return 2
 
     // Calc all possible date matches of date in section events
     const matches = sectionEvents.reduce((acc, sectionEvent) => {
@@ -494,22 +502,22 @@ class Scheduler {
       if (e === null) return acc
       const topString = e.style.top
       const topNumber = +topString.substring(0, topString.length - 2)
-      return [...acc, topNumber - 1]
+      return [...acc, topNumber - 2]
     }, [] as number[]).sort((a, b) => a - b)
 
     // No matches
-    if (tops.length === 0) return 1
+    if (tops.length === 0) return 2
 
     // Only 1 matchs
-    if (tops.length === 1) return tops[0] + 27
+    if (tops.length === 1) return tops[0] !== 0 ? 2 : 28
 
     // Looking for possible spaces
     for (let i = 1; i < tops.length; i++) {
       if (tops[i] > tops[i - 1] + 26) {
-        return tops[i - 1] + 27
+        return tops[i - 1] + 28
       }
     }
-    return tops[tops.length - 1] + 27
+    return tops[tops.length - 1] + 28
   }
 
   // Calc 'left' and 'width' css props for horizontal positioning and space
@@ -539,7 +547,7 @@ class Scheduler {
       newEvent.draggable = true
       newEvent.classList.add('ssche__event')
       newEvent.dataset['id'] = `${event.event.id}`
-      newEvent.addEventListener('click', () => this.openModal(event.event))
+      newEvent.addEventListener('dblclick', () => this.openModal(event.event))
       newEvent.style.top = `${this.calcTop(event)}px`
       const { left, size } = this.calcLeftSize(event)
       newEvent.style.left = `${left}px`
@@ -547,20 +555,24 @@ class Scheduler {
 
       newEvent.addEventListener('dragstart', e => {
         this.auxDrag = e.target as HTMLDivElement
+        // this.auxDrag.style.backgroundColor = 'red'
       })
-
       newEvent.addEventListener('dragend', () => {
-        this.auxDrag = null
+        if (this.auxDrag) {
+          // this.auxDrag.style.backgroundColor = 'yellow'
+          this.auxDrag = null
+        }
       })
 
-      const section = grid.getElementsByClassName('ssche__drag-zone')[event.section] as HTMLDivElement
-      section.appendChild(newEvent)
-      this.fixHeightFromChildren(section)
+      const dragZone = grid.getElementsByClassName('ssche__drag-zone')[event.section] as HTMLDivElement
+      dragZone.appendChild(newEvent)
+      this.updateSectionHeight(dragZone.parentNode as HTMLDivElement)
+      this.horizontalDragging(newEvent)
     }
   }
 
   // Adjust height of section row when overflows vertical space
-  private fixHeightFromChildren = (eventsContainer: HTMLDivElement) => {
+  private updateSectionHeight = (eventsContainer: HTMLDivElement) => {
     const children = Array.from(eventsContainer.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
     let maxTop = 0
     children.forEach(ch => {
@@ -569,6 +581,80 @@ class Scheduler {
       if (maxTop < topValue) maxTop = topValue
     })
     eventsContainer.style.minHeight = `${maxTop + 26}px`
+  }
+
+  // Reorder events for reduce spaces
+  private reorderEvents = (section: number) => {
+    const grid = document.getElementById(`${this.rootId}-grid`)
+    const sectionRow = grid?.getElementsByClassName('ssche__drag-zone')[section]
+    const sectionEvents = Array.from(sectionRow?.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
+
+    // Update section height when remove for reduce space
+    const sectionEventsIds = sectionEvents.map(se => se.dataset.id)
+    this.events = this.events.filter(e => !sectionEventsIds.includes(e.id))
+    let maxTop = 0
+    sectionEvents.forEach(se => {
+      const topValue = this.calcTop(this.drawedEvents[se.dataset.id as string])
+      if (maxTop < topValue) maxTop = topValue
+      se.style.top = `${topValue}px`
+      this.events.push(this.drawedEvents[se.dataset.id as string])
+    })
+    const eventsContainer = sectionRow?.parentNode as HTMLDivElement
+    eventsContainer.style.minHeight = `${maxTop + 26}px`
+  }
+
+  private horizontalDragging = (event: HTMLDivElement) => {
+    const dragZone = event.parentNode
+    let mouseXClick = 0, mouseXMove = 0
+    const dragMouseDown = (e: MouseEvent) => {
+      e = e || window.event;
+      e.preventDefault();
+      // get the mouse cursor position at startup:
+      mouseXClick = e.clientX;
+      if (dragZone) {
+        dragZone.addEventListener('mousemove', moveEvent)
+        dragZone.addEventListener('mouseup', closeDragElement)
+      }
+    }
+
+    const moveEvent = (e: Event) => {
+      const evt = (e || window.event) as MouseEvent;
+      e.preventDefault();
+      // calculate the new cursor position:
+      mouseXMove = mouseXClick - evt.clientX;
+
+      if (Math.abs(mouseXMove) > this.cellWidth) {
+        mouseXClick = evt.clientX
+        const deltaDay = Math.round(mouseXMove / this.cellWidth)
+        const computed = this.drawedEvents[event.dataset.id as string]
+        const startDate = new Date(computed.start)
+        const endDate = new Date(computed.end)
+        startDate.setDate(startDate.getDate() - deltaDay)
+        endDate.setDate(endDate.getDate() - deltaDay)
+        computed.start = startDate.getTime()
+        computed.startDay = startDate.getDate()
+        computed.end = endDate.getTime()
+        computed.endDay = endDate.getDate()
+        const startDateStr = startDate.toISOString()
+        const endDateStr = endDate.toISOString()
+        computed.event.startDate = startDateStr.substring(0, startDateStr.indexOf('T'))
+        computed.event.endDate = endDateStr.substring(0, endDateStr.indexOf('T'))
+        const { left, size } = this.calcLeftSize(computed)
+        event.style.left = `${left}px`
+        event.style.width = `${size}px`
+      }
+    }
+
+    const closeDragElement = () => {
+      // stop moving when mouse button is released:
+      if (dragZone) {
+        dragZone.removeEventListener('mousemove', moveEvent)
+        dragZone.removeEventListener('mouseup', closeDragElement)
+      }
+    }
+
+    event.addEventListener('mousedown', dragMouseDown)
+
   }
 
   constructor(config: ConfigObject) {
@@ -602,32 +688,27 @@ class Scheduler {
   // Add event to scheduler (mainly for user use)
   public addEvent = (event: EventScheduler) => {
     const computedEvent = this.computeEvent(event)
+    this.events.push(computedEvent)
     if (this.isDrawableNow(computedEvent)) {
       this.drawEvent(computedEvent)
       this.drawedEvents[computedEvent.id] = computedEvent
     }
-    this.events.push(computedEvent)
   }
 
   // Remove event from scheduler (mainly for user use)
   public removeEvent = (id: string | null) => {
     if (id === null) throw new Error(`Id not valid: ${id}`)
     else {
-      const toRemove = document.querySelector(`div.ssche__event[data-id="${id}"]`) as HTMLDivElement
+      const grid = document.getElementById(`${this.rootId}-grid`)
+      const toRemove = grid?.querySelector(`div.ssche__event[data-id="${id}"]`) as HTMLDivElement
       if (toRemove === null) throw new Error(`No events with id: ${id}`)
       else {
-        const parent = toRemove.parentElement as HTMLDivElement
+        const dragZone = toRemove.parentElement as HTMLDivElement
+        const sectionPos = this.drawedEvents[id].section
         this.events = this.events.filter(e => e.id !== id)
         delete this.drawedEvents[id]
-        parent.removeChild(toRemove)
-        const sectionEvents = Array.from(parent.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
-
-        // Update section height when remove for reduce space
-        sectionEvents.forEach(se => {
-          console.log(se)
-          se.style.top = `${this.calcTop(this.drawedEvents[se.dataset.id as string])}px`
-        })
-        this.fixHeightFromChildren(parent)
+        dragZone.removeChild(toRemove)
+        this.reorderEvents(sectionPos)
       }
     }
   }
