@@ -90,7 +90,13 @@ class Scheduler {
   }
 
   // Get text on current lang (langs prop has texts)
-  private getTextLang = (key: string) => this.langs[this.lang][key]
+  private getTextLang = (key: string) => {
+    if (this.lang in this.langs) return this.langs[this.lang][key]
+    else {
+      console.warn(`Lang: ${this.lang} is not available. Fallback lang: 'en'`)
+      return this.langs['en'][key]
+    }
+  }
 
   // Event for close modal (reused)
   private closeModalEvent = (event: KeyboardEvent) => {
@@ -292,7 +298,7 @@ class Scheduler {
     const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
     const leftMatch = e.start < startLimit && e.end > startLimit
     const centralMatch = e.start >= startLimit && e.end <= endLimit
-    const rightMatch = e.start < endLimit && e.end > endLimit
+    const rightMatch = e.start <= endLimit && e.end > endLimit
     return leftMatch || centralMatch || rightMatch
   }
 
@@ -399,7 +405,7 @@ class Scheduler {
 
     // Creating table head
     const headingCell = grid.getElementsByClassName('day-labels')[0] as HTMLDivElement
-    headingCell.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(32px, 1fr))`
+    headingCell.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(40px, 1fr))`
 
     for (let i = 0; i < this.totalDays; i++) {
       const cell = document.createElement('div')
@@ -409,11 +415,11 @@ class Scheduler {
 
     // Creating cells time limits and dragging zones
     const eventsContainer = Array.from(grid.getElementsByClassName('events-container') as HTMLCollectionOf<HTMLDivElement>)
-    eventsContainer.forEach((ec, index) => {
+    eventsContainer.forEach(ec => {
       const cells = document.createElement('div')
       const dragZone = document.createElement('div')
       cells.classList.add('ssche__cells')
-      cells.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(32px, 1fr))`
+      cells.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(40px, 1fr))`
       dragZone.classList.add('ssche__drag-zone')
       for (let i = 0; i < this.totalDays; i++) {
         cells.appendChild(document.createElement('div'))
@@ -428,6 +434,7 @@ class Scheduler {
 
     // Event for resize events width when window resizes
     window.addEventListener('resize', () => {
+      const aux = document.getElementsByClassName('ssche__cells')[0].childNodes[0] as HTMLDivElement
       this.cellWidth = aux.getClientRects()[0].width
       const events = Array.from(grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
       events.forEach(ev => {
@@ -513,7 +520,7 @@ class Scheduler {
     const width = this.cellWidth * range - 1
     return {
       left: start * this.cellWidth + 1,
-      size: (width > 0 ? width : this.cellWidth) - 1,
+      size: width > 0 ? width : this.cellWidth
     }
   }
 
@@ -588,14 +595,11 @@ class Scheduler {
         hasMoveY = false
       }
       this.eventDragging = null
-      dragZones.forEach(dz => {
-        dz.onmousemove = null
-        dz.onmouseup = null
-      })
+      dragZones.forEach(dz => { dz.onmousemove = null })
+      document.removeEventListener('mouseup', closeDragElement)
     }
 
     const addEvents = (dragZone: HTMLDivElement, index: number) => {
-
       // Events when move 'event' elements
       const moveEvent = (e: MouseEvent) => {
         const computed = this.drawnEvents[event.dataset.id as string]
@@ -645,7 +649,7 @@ class Scheduler {
         }
       }
       dragZone.onmousemove = moveEvent
-      dragZone.onmouseup = closeDragElement
+      document.addEventListener('mouseup', closeDragElement)
     }
 
     const dragMouseDown = (e: MouseEvent) => {

@@ -322,5 +322,10 @@
   box-sizing: border-box;
   margin-bottom: 2px;
   position: absolute;
+}
+.ssche__event span {
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
 }
