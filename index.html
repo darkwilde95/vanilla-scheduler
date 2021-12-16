@@ -34,21 +34,28 @@
         { id: '11', label: 'section 11' },
         { id: '12', label: 'section 12' },
       ],
-      lang: 'es',
+      lang: 'en',
       onlyRead: false
     })
 
-    calendar.onEventCreated(event => {
-      calendar.addEvent({ id: `${id++}`, ...event })
+    calendar.onEventCreated(eventCreatedData => {
+      calendar.addEvent({ id: `${id++}`, ...eventCreatedData })
     })
 
-    calendar.onEventEdited(event => {
-      calendar.removeEvent(event.id)
-      calendar.addEvent(event)
+    calendar.onEventEdited((oldEventData, newEventData) => {
+      calendar.removeEvent(oldEventData.id)
+      calendar.addEvent(newEventData)
     })
 
-    calendar.onEventDeleted(event => {
-      calendar.removeEvent(event.id)
+    calendar.onEventDeleted(deletedEventData => {
+      calendar.removeEvent(deletedEventData.id)
+    })
+
+    calendar.onEventUpdatedByDrag((oldEventData, newEventData) => {
+      // Use this callback for update data in backend and manage some error
+      // Update event on interface if error
+      console.log(oldEventData)
+      console.log(newEventData)
     })
   </script>
 </body>

@@ -39,6 +39,7 @@ class Scheduler {
   createCallback: Function | null = null
   deleteCallback: Function | null = null
   editCallback: Function | null = null
+  eventDraggedCallback: Function | null = null
   sections: Section[] = []
   totalDays = 0
   title: HTMLHeadingElement | null = null
@@ -47,8 +48,8 @@ class Scheduler {
   currentYear = new Date().getFullYear()
   rootId: string | null = null
   events: EventComputed[] = []
-  drawedEvents: { [key: string]: EventComputed } = {}
-  auxDrag: HTMLDivElement | null = null
+  drawnEvents: { [key: string]: EventComputed } = {}
+  eventDragging: HTMLDivElement | null = null
   langs: { [key: string]: any } = {
     en: {
       months: [
@@ -198,25 +199,22 @@ class Scheduler {
     const saveButton = document.getElementById(`${this.rootId}-modal-save`) as HTMLButtonElement
 
     if (!this.onlyRead) {
+      const disableSaveBtn = () => {
+        saveButton.disabled = startDate.value === '' || endDate.value === ''
+          || section.value === '' || description.value === ''
+      }
       // Validations in modal form
       startDate.addEventListener('change', e => {
         endDate.min = (e.target as HTMLInputElement).value
-        saveButton.disabled = startDate.value === '' || endDate.value === ''
-          || section.value === '' || description.value === ''
+        disableSaveBtn()
       })
       endDate.addEventListener('change', e => {
         startDate.max = (e.target as HTMLInputElement).value
-        saveButton.disabled = startDate.value === '' || endDate.value === ''
-          || section.value === '' || description.value === ''
+        disableSaveBtn()
       })
-      section.addEventListener('change', () => {
-        saveButton.disabled = startDate.value === '' || endDate.value === ''
-          || section.value === '' || description.value === ''
-      })
-      description.addEventListener('change', () => {
-        saveButton.disabled = startDate.value === '' || endDate.value === ''
-          || section.value === '' || description.value === ''
-      })
+      section.addEventListener('change', disableSaveBtn)
+      description.addEventListener('input', disableSaveBtn)
+
       startTime.addEventListener('change', e => {
         const startTimeString = (e.target as HTMLInputElement).value
         endTime.min = startTimeString
@@ -224,8 +222,7 @@ class Scheduler {
         const et = new Date(0, 0, 0, +endTime.value.split(':')[0], +endTime.value.split(':')[1])
         if (et.getTime() < st.getTime()) endTime.value = ''
       })
-      saveButton.disabled = startDate.value === '' || endDate.value === ''
-        || section.value === '' || description.value === ''
+      disableSaveBtn()
 
       // Event for generate data from form for use in callbacks
       saveButton.addEventListener('click', () => {
@@ -239,7 +236,7 @@ class Scheduler {
         }
         if (event) {
           eventData['id'] = event.id
-          if (this.editCallback) this.editCallback(eventData)
+          if (this.editCallback) this.editCallback(event, eventData)
           else throw new Error("Callback 'onEventEdited' isn't defined.")
         } else {
           if (this.createCallback) this.createCallback(eventData)
@@ -263,8 +260,12 @@ class Scheduler {
       section.value = event.section
       startDate.value = event.startDate
       endDate.value = event.endDate
+      startDate.max = event.endDate
+      endDate.min = event.startDate
       startTime.value = event.startTime
       endTime.value = event.endTime
+      startTime.max = event.endTime
+      endTime.min = event.startTime
       if (!this.onlyRead) {
         const deleteButton = document.getElementById(`${this.rootId}-modal-delete`) as HTMLButtonElement
         deleteButton.addEventListener('click', () => {
@@ -314,9 +315,9 @@ class Scheduler {
         newGrid.id = `${this.rootId}-grid`
         root.append(newGrid)
         this.createGrid()
-        this.drawedEvents = {}
+        this.drawnEvents = {}
         this.events.filter(e => this.isDrawableNow(e)).forEach(e => {
-          this.drawedEvents[e.id] = e
+          this.drawnEvents[e.id] = e
           this.drawEvent(e)
         })
       }
@@ -417,27 +418,6 @@ class Scheduler {
       for (let i = 0; i < this.totalDays; i++) {
         cells.appendChild(document.createElement('div'))
       }
-
-      // Events for changes among dragging zones
-      dragZone.addEventListener('dragenter', e => {
-        const container = e.target as HTMLDivElement
-        if (this.auxDrag && container.classList.contains('ssche__drag-zone')) {
-          const event = this.drawedEvents[this.auxDrag.dataset.id as string]
-          if (event.section !== index) {
-            this.auxDrag.style.top = '0px'
-            this.auxDrag.parentNode?.removeChild(this.auxDrag)
-            this.reorderEvents(event.section)
-            event.section = index
-            event.event.section = this.sections[index].id
-            this.auxDrag.style.top = `${this.calcTop(event)}px`
-            container.appendChild(this.auxDrag)
-            this.updateSectionHeight(container.parentNode as HTMLDivElement)
-          }
-        }
-      })
-      dragZone.addEventListener('dragover', e => {
-        e.preventDefault()
-      })
       ec.appendChild(dragZone)
       ec.appendChild(cells)
     })
@@ -451,8 +431,8 @@ class Scheduler {
       this.cellWidth = aux.getClientRects()[0].width
       const events = Array.from(grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
       events.forEach(ev => {
-        this.calcLeftSize(this.drawedEvents[ev.dataset.id as string])
-        const { left, size } = this.calcLeftSize(this.drawedEvents[ev.dataset.id as string])
+        this.calcLeftSize(this.drawnEvents[ev.dataset.id as string])
+        const { left, size } = this.calcLeftSize(this.drawnEvents[ev.dataset.id as string])
         ev.style.left = `${left}px`
         ev.style.width = `${size}px`
       })
@@ -537,14 +517,13 @@ class Scheduler {
     }
   }
 
-  // Function for draw event (Only use when is sure a event must be drawed)
+  // Function for draw event (Only use when is sure a event must be drawn)
   private drawEvent = (event: EventComputed) => {
     const grid = document.getElementById(`${this.rootId}-grid`)
     if (!grid) throw new Error("Grid doesn't exists.")
     else {
       const newEvent = document.createElement('div')
-      newEvent.innerText = event.event.description
-      newEvent.draggable = true
+      newEvent.innerHTML = `<span>${event.event.description}</span>`
       newEvent.classList.add('ssche__event')
       newEvent.dataset['id'] = `${event.event.id}`
       newEvent.addEventListener('dblclick', () => this.openModal(event.event))
@@ -552,22 +531,10 @@ class Scheduler {
       const { left, size } = this.calcLeftSize(event)
       newEvent.style.left = `${left}px`
       newEvent.style.width = `${size}px`
-
-      newEvent.addEventListener('dragstart', e => {
-        this.auxDrag = e.target as HTMLDivElement
-        // this.auxDrag.style.backgroundColor = 'red'
-      })
-      newEvent.addEventListener('dragend', () => {
-        if (this.auxDrag) {
-          // this.auxDrag.style.backgroundColor = 'yellow'
-          this.auxDrag = null
-        }
-      })
-
       const dragZone = grid.getElementsByClassName('ssche__drag-zone')[event.section] as HTMLDivElement
       dragZone.appendChild(newEvent)
       this.updateSectionHeight(dragZone.parentNode as HTMLDivElement)
-      this.horizontalDragging(newEvent)
+      this.addDragging(newEvent)
     }
   }
 
@@ -594,67 +561,101 @@ class Scheduler {
     this.events = this.events.filter(e => !sectionEventsIds.includes(e.id))
     let maxTop = 0
     sectionEvents.forEach(se => {
-      const topValue = this.calcTop(this.drawedEvents[se.dataset.id as string])
+      const topValue = this.calcTop(this.drawnEvents[se.dataset.id as string])
       if (maxTop < topValue) maxTop = topValue
       se.style.top = `${topValue}px`
-      this.events.push(this.drawedEvents[se.dataset.id as string])
+      this.events.push(this.drawnEvents[se.dataset.id as string])
     })
     const eventsContainer = sectionRow?.parentNode as HTMLDivElement
     eventsContainer.style.minHeight = `${maxTop + 26}px`
   }
 
-  private horizontalDragging = (event: HTMLDivElement) => {
-    const dragZone = event.parentNode
-    let mouseXClick = 0, mouseXMove = 0
+  // Horizontal draggin feature
+  private addDragging = (event: HTMLDivElement) => {
+    let hasMoveX = false, hasMoveY = false
+    let firstPosX = 0, deltaX = 0
+    const grid = document.getElementById(`${this.rootId}-grid`)
+    const dragZones = Array.from(grid?.getElementsByClassName('ssche__drag-zone') as HTMLCollectionOf<HTMLDivElement>)
+    const oldEventData = { ...this.events.find(e => e.id === event.dataset.id)?.event }
+
+    const closeDragElement = () => {
+      if ((hasMoveX || hasMoveY) && this.eventDraggedCallback) {
+        this.eventDraggedCallback(
+          oldEventData,
+          this.drawnEvents[this.eventDragging?.dataset.id as string].event
+        )
+        hasMoveX = false
+        hasMoveY = false
+      }
+      this.eventDragging = null
+      dragZones.forEach(dz => {
+        dz.onmousemove = null
+        dz.onmouseup = null
+      })
+    }
+
+    const addEvents = (dragZone: HTMLDivElement, index: number) => {
+
+      // Events when move 'event' elements
+      const moveEvent = (e: MouseEvent) => {
+        const computed = this.drawnEvents[event.dataset.id as string]
+        const evt = (e || window.event) as MouseEvent;
+        const target = e.target as HTMLDivElement
+        e.preventDefault();
+        deltaX = firstPosX - evt.clientX;
+
+        // Detect change of time (Day change)
+        if (Math.abs(deltaX) > this.cellWidth) {
+          firstPosX = evt.clientX
+          const deltaDay = Math.round(deltaX / this.cellWidth)
+          const startDate = new Date(computed.start)
+          const endDate = new Date(computed.end)
+          startDate.setDate(startDate.getDate() - deltaDay)
+          endDate.setDate(endDate.getDate() - deltaDay)
+          computed.start = startDate.getTime()
+          computed.startDay = startDate.getDate()
+          computed.end = endDate.getTime()
+          computed.endDay = endDate.getDate()
+          const startDateStr = startDate.toISOString()
+          const endDateStr = endDate.toISOString()
+          computed.event.startDate = startDateStr.substring(0, startDateStr.indexOf('T'))
+          computed.event.endDate = endDateStr.substring(0, endDateStr.indexOf('T'))
+          hasMoveX = true
+        }
+
+        // Detect change between drag zones (update section)
+        const isDragZone = target.classList.contains('ssche__drag-zone')
+        const eventParent = this.eventDragging?.parentNode as HTMLDivElement
+        if (isDragZone && target !== eventParent) {
+          eventParent.removeChild(this.eventDragging as HTMLDivElement)
+          target.appendChild(this.eventDragging as HTMLDivElement)
+          this.reorderEvents(computed.section)
+          computed.section = index
+          computed.event.section = this.sections[index].id
+          hasMoveY = true
+        }
+
+        // Update visual if necessary
+        if (hasMoveX || hasMoveY) {
+          const { left, size } = this.calcLeftSize(computed)
+          event.style.left = `${left}px`
+          event.style.width = `${size}px`
+          event.style.top = `${this.calcTop(computed)}px`
+          this.reorderEvents(computed.section)
+        }
+      }
+      dragZone.onmousemove = moveEvent
+      dragZone.onmouseup = closeDragElement
+    }
+
     const dragMouseDown = (e: MouseEvent) => {
       e = e || window.event;
       e.preventDefault();
-      // get the mouse cursor position at startup:
-      mouseXClick = e.clientX;
-      if (dragZone) {
-        dragZone.addEventListener('mousemove', moveEvent)
-        dragZone.addEventListener('mouseup', closeDragElement)
-      }
+      firstPosX = e.clientX;
+      this.eventDragging = event
+      dragZones.forEach((dz, index) => { addEvents(dz, index) })
     }
-
-    const moveEvent = (e: Event) => {
-      const evt = (e || window.event) as MouseEvent;
-      e.preventDefault();
-      // calculate the new cursor position:
-      mouseXMove = mouseXClick - evt.clientX;
-
-      if (Math.abs(mouseXMove) > this.cellWidth) {
-        mouseXClick = evt.clientX
-        const deltaDay = Math.round(mouseXMove / this.cellWidth)
-        const computed = this.drawedEvents[event.dataset.id as string]
-        const startDate = new Date(computed.start)
-        const endDate = new Date(computed.end)
-        startDate.setDate(startDate.getDate() - deltaDay)
-        endDate.setDate(endDate.getDate() - deltaDay)
-        computed.start = startDate.getTime()
-        computed.startDay = startDate.getDate()
-        computed.end = endDate.getTime()
-        computed.endDay = endDate.getDate()
-        const startDateStr = startDate.toISOString()
-        const endDateStr = endDate.toISOString()
-        computed.event.startDate = startDateStr.substring(0, startDateStr.indexOf('T'))
-        computed.event.endDate = endDateStr.substring(0, endDateStr.indexOf('T'))
-        const { left, size } = this.calcLeftSize(computed)
-        event.style.left = `${left}px`
-        event.style.width = `${size}px`
-      }
-    }
-
-    const closeDragElement = () => {
-      // stop moving when mouse button is released:
-      if (dragZone) {
-        dragZone.removeEventListener('mousemove', moveEvent)
-        dragZone.removeEventListener('mouseup', closeDragElement)
-      }
-    }
-
-    event.addEventListener('mousedown', dragMouseDown)
-
+    event.onmousedown = dragMouseDown
   }
 
   constructor(config: ConfigObject) {
@@ -685,13 +686,16 @@ class Scheduler {
 
   public onEventEdited = (cb: Function) => { this.editCallback = cb }
 
+  public onEventUpdatedByDrag = (cb: Function) => { this.eventDraggedCallback = cb }
+
   // Add event to scheduler (mainly for user use)
+  // New events must have unique ID
   public addEvent = (event: EventScheduler) => {
     const computedEvent = this.computeEvent(event)
     this.events.push(computedEvent)
     if (this.isDrawableNow(computedEvent)) {
       this.drawEvent(computedEvent)
-      this.drawedEvents[computedEvent.id] = computedEvent
+      this.drawnEvents[computedEvent.id] = computedEvent
     }
   }
 
@@ -704,9 +708,9 @@ class Scheduler {
       if (toRemove === null) throw new Error(`No events with id: ${id}`)
       else {
         const dragZone = toRemove.parentElement as HTMLDivElement
-        const sectionPos = this.drawedEvents[id].section
+        const sectionPos = this.drawnEvents[id].section
         this.events = this.events.filter(e => e.id !== id)
-        delete this.drawedEvents[id]
+        delete this.drawnEvents[id]
         dragZone.removeChild(toRemove)
         this.reorderEvents(sectionPos)
       }
