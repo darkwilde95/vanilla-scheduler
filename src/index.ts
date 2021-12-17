@@ -12,7 +12,7 @@ interface ConfigObject {
   onlyRead?: boolean
 }
 
-interface EventScheduler {
+interface DataEvent {
   id?: string
   description: string
   section: string
@@ -22,9 +22,9 @@ interface EventScheduler {
   endDate: string
 }
 
-interface EventComputed {
+interface ComputedEvent {
   id: string
-  event: EventScheduler
+  eventFormData: DataEvent
   startDay: number
   endDay: number
   start: number
@@ -47,8 +47,8 @@ class Scheduler {
   currentMonth = new Date().getMonth()
   currentYear = new Date().getFullYear()
   rootId: string | null = null
-  events: EventComputed[] = []
-  drawnEvents: { [key: string]: EventComputed } = {}
+  events: ComputedEvent[] = []
+  drawnEvents: { [key: string]: ComputedEvent } = {}
   eventDragging: HTMLDivElement | null = null
   langs: { [key: string]: any } = {
     en: {
@@ -118,7 +118,7 @@ class Scheduler {
   }
 
   // Draw modal for create an edit (if event is not null => edit mode)
-  private openModal = (event?: EventScheduler) => {
+  private openModal = (event?: DataEvent) => {
 
     // Draw modal body and overlay
     const body = document.getElementsByTagName('body')[0]
@@ -293,7 +293,7 @@ class Scheduler {
   }
 
   // Verify if event is drawable with current month and year
-  private isDrawableNow = (e: EventComputed) => {
+  private isDrawableNow = (e: ComputedEvent) => {
     const startLimit = new Date(this.currentYear, this.currentMonth, 1).getTime()
     const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
     const leftMatch = e.start < startLimit && e.end > startLimit
@@ -447,7 +447,7 @@ class Scheduler {
   }
 
   // Get event data for easy calc later
-  private computeEvent = (event: EventScheduler): EventComputed => {
+  private computeEvent = (event: DataEvent): ComputedEvent => {
     const section = this.sections.map(s => s.id).indexOf(event.section)
     const d1 = event.startDate.split('-')
     const d2 = event.endDate.split('-')
@@ -455,7 +455,7 @@ class Scheduler {
     const date2 = new Date(+d2[0], +d2[1] - 1, +d2[2])
     return {
       id: event.id || '',
-      event,
+      eventFormData: event,
       section,
       startDay: date1.getDate(),
       endDay: date2.getDate(),
@@ -465,9 +465,7 @@ class Scheduler {
   }
 
   // Calc 'top' css prop for vertical positioning in same section
-  private calcTop = (event: EventComputed) => {
-    // Get section events
-    const sectionEvents = this.events.filter(e => e.section === event.section)
+  private calcTop = (event: ComputedEvent, sectionEvents: ComputedEvent[]) => {
 
     // No section events -> don't need calc anymore
     if (sectionEvents.length === 0) return 2
@@ -481,7 +479,7 @@ class Scheduler {
       const rightMatch = sectionEvent.start < event.end && sectionEvent.end > event.end
       if (leftMatch || rightMatch || isContainer || isContained) return [...acc, sectionEvent]
       return acc
-    }, [] as EventComputed[])
+    }, [] as ComputedEvent[])
 
     // Get 'top' measurements for calc max
     const tops = matches.reduce((acc, curr) => {
@@ -495,8 +493,8 @@ class Scheduler {
     // No matches
     if (tops.length === 0) return 2
 
-    // Only 1 matchs
-    if (tops.length === 1) return tops[0] !== 0 ? 2 : 28
+    // there's a space on top of section
+    if (tops[0] !== 0) return 2
 
     // Looking for possible spaces
     for (let i = 1; i < tops.length; i++) {
@@ -508,7 +506,7 @@ class Scheduler {
   }
 
   // Calc 'left' and 'width' css props for horizontal positioning and space
-  private calcLeftSize = (event: EventComputed) => {
+  private calcLeftSize = (event: ComputedEvent) => {
     const startLimit = new Date(this.currentYear, this.currentMonth, 1).getTime()
     const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
     // Calc if limits are in current month o different
@@ -525,53 +523,39 @@ class Scheduler {
   }
 
   // Function for draw event (Only use when is sure a event must be drawn)
-  private drawEvent = (event: EventComputed) => {
+  private drawEvent = (event: ComputedEvent) => {
     const grid = document.getElementById(`${this.rootId}-grid`)
     if (!grid) throw new Error("Grid doesn't exists.")
     else {
       const newEvent = document.createElement('div')
-      newEvent.innerHTML = `<span>${event.event.description}</span>`
+      newEvent.innerHTML = `<span>${event.eventFormData.description}</span>`
       newEvent.classList.add('ssche__event')
-      newEvent.dataset['id'] = `${event.event.id}`
-      newEvent.addEventListener('dblclick', () => this.openModal(event.event))
-      newEvent.style.top = `${this.calcTop(event)}px`
+      newEvent.dataset['id'] = `${event.eventFormData.id}`
+      newEvent.addEventListener('dblclick', () => this.openModal(event.eventFormData))
       const { left, size } = this.calcLeftSize(event)
       newEvent.style.left = `${left}px`
       newEvent.style.width = `${size}px`
       const dragZone = grid.getElementsByClassName('ssche__drag-zone')[event.section] as HTMLDivElement
       dragZone.appendChild(newEvent)
-      this.updateSectionHeight(dragZone.parentNode as HTMLDivElement)
+      this.reorderEvents(event.section)
       this.addDragging(newEvent)
     }
   }
 
-  // Adjust height of section row when overflows vertical space
-  private updateSectionHeight = (eventsContainer: HTMLDivElement) => {
-    const children = Array.from(eventsContainer.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
-    let maxTop = 0
-    children.forEach(ch => {
-      const top = ch.style.top || '0px'
-      const topValue = +top.substring(0, top.length - 2)
-      if (maxTop < topValue) maxTop = topValue
-    })
-    eventsContainer.style.minHeight = `${maxTop + 26}px`
-  }
-
-  // Reorder events for reduce spaces
+  // Reorder events for adjust space and height
   private reorderEvents = (section: number) => {
     const grid = document.getElementById(`${this.rootId}-grid`)
     const sectionRow = grid?.getElementsByClassName('ssche__drag-zone')[section]
     const sectionEvents = Array.from(sectionRow?.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
 
-    // Update section height when remove for reduce space
-    const sectionEventsIds = sectionEvents.map(se => se.dataset.id)
-    this.events = this.events.filter(e => !sectionEventsIds.includes(e.id))
+    // Update section height when add or remove for change space
+    const sectionComputedEvents: ComputedEvent[] = []
     let maxTop = 0
     sectionEvents.forEach(se => {
-      const topValue = this.calcTop(this.drawnEvents[se.dataset.id as string])
+      const topValue = this.calcTop(this.drawnEvents[se.dataset.id as string], sectionComputedEvents)
       if (maxTop < topValue) maxTop = topValue
       se.style.top = `${topValue}px`
-      this.events.push(this.drawnEvents[se.dataset.id as string])
+      sectionComputedEvents.push(this.drawnEvents[se.dataset.id as string])
     })
     const eventsContainer = sectionRow?.parentNode as HTMLDivElement
     eventsContainer.style.minHeight = `${maxTop + 26}px`
@@ -583,23 +567,24 @@ class Scheduler {
     let firstPosX = 0, deltaX = 0
     const grid = document.getElementById(`${this.rootId}-grid`)
     const dragZones = Array.from(grid?.getElementsByClassName('ssche__drag-zone') as HTMLCollectionOf<HTMLDivElement>)
-    const oldEventData = { ...this.events.find(e => e.id === event.dataset.id)?.event }
+    const oldEventData = { ...this.drawnEvents[event.dataset.id as string].eventFormData }
 
+    // Event for clean when mouseclick release
     const closeDragElement = () => {
       if ((hasMoveX || hasMoveY) && this.eventDraggedCallback) {
         this.eventDraggedCallback(
           oldEventData,
-          this.drawnEvents[this.eventDragging?.dataset.id as string].event
+          this.drawnEvents[this.eventDragging?.dataset.id as string].eventFormData
         )
-        hasMoveX = false
-        hasMoveY = false
       }
       this.eventDragging = null
       dragZones.forEach(dz => { dz.onmousemove = null })
       document.removeEventListener('mouseup', closeDragElement)
     }
 
-    const addEvents = (dragZone: HTMLDivElement, index: number) => {
+    // Wrap event functions for give index of dragzone
+    const addEventHandlers = (dragZone: HTMLDivElement, index: number) => {
+
       // Events when move 'event' elements
       const moveEvent = (e: MouseEvent) => {
         const computed = this.drawnEvents[event.dataset.id as string]
@@ -622,8 +607,8 @@ class Scheduler {
           computed.endDay = endDate.getDate()
           const startDateStr = startDate.toISOString()
           const endDateStr = endDate.toISOString()
-          computed.event.startDate = startDateStr.substring(0, startDateStr.indexOf('T'))
-          computed.event.endDate = endDateStr.substring(0, endDateStr.indexOf('T'))
+          computed.eventFormData.startDate = startDateStr.substring(0, startDateStr.indexOf('T'))
+          computed.eventFormData.endDate = endDateStr.substring(0, endDateStr.indexOf('T'))
           hasMoveX = true
         }
 
@@ -635,7 +620,7 @@ class Scheduler {
           target.appendChild(this.eventDragging as HTMLDivElement)
           this.reorderEvents(computed.section)
           computed.section = index
-          computed.event.section = this.sections[index].id
+          computed.eventFormData.section = this.sections[index].id
           hasMoveY = true
         }
 
@@ -644,21 +629,24 @@ class Scheduler {
           const { left, size } = this.calcLeftSize(computed)
           event.style.left = `${left}px`
           event.style.width = `${size}px`
-          event.style.top = `${this.calcTop(computed)}px`
           this.reorderEvents(computed.section)
+          hasMoveX = false
+          hasMoveY = false
         }
       }
       dragZone.onmousemove = moveEvent
       document.addEventListener('mouseup', closeDragElement)
     }
 
+    // Init events of dragging when mouse click is pressed
     const dragMouseDown = (e: MouseEvent) => {
       e = e || window.event;
       e.preventDefault();
       firstPosX = e.clientX;
       this.eventDragging = event
-      dragZones.forEach((dz, index) => { addEvents(dz, index) })
+      dragZones.forEach((dz, index) => { addEventHandlers(dz, index) })
     }
+
     event.onmousedown = dragMouseDown
   }
 
@@ -694,12 +682,12 @@ class Scheduler {
 
   // Add event to scheduler (mainly for user use)
   // New events must have unique ID
-  public addEvent = (event: EventScheduler) => {
+  public addEvent = (event: DataEvent) => {
     const computedEvent = this.computeEvent(event)
     this.events.push(computedEvent)
     if (this.isDrawableNow(computedEvent)) {
-      this.drawEvent(computedEvent)
       this.drawnEvents[computedEvent.id] = computedEvent
+      this.drawEvent(computedEvent)
     }
   }
 
