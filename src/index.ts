@@ -482,8 +482,9 @@ class Scheduler {
     }, [] as ComputedEvent[])
 
     // Get 'top' measurements for calc max
+    const grid = document.getElementById(`${this.rootId}-grid`) as HTMLDivElement
     const tops = matches.reduce((acc, curr) => {
-      const e = document.querySelector(`div.ssche__event[data-id="${curr.id}"]`) as HTMLDivElement
+      const e = grid?.querySelector(`div.ssche__event[data-id="${curr.id}"]`) as HTMLDivElement
       if (e === null) return acc
       const topString = e.style.top
       const topNumber = +topString.substring(0, topString.length - 2)
