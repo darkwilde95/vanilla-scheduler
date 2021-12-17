@@ -452,7 +452,7 @@ class Scheduler {
     const d1 = event.startDate.split('-')
     const d2 = event.endDate.split('-')
     const date1 = new Date(+d1[0], +d1[1] - 1, +d1[2])
-    const date2 = new Date(+d2[0], +d2[1] - 1, +d2[2])
+    const date2 = new Date(+d2[0], +d2[1] - 1, +d2[2] + 1)
     return {
       id: event.id || '',
       eventFormData: event,
@@ -538,25 +538,30 @@ class Scheduler {
       newEvent.style.width = `${size}px`
       const dragZone = grid.getElementsByClassName('ssche__drag-zone')[event.section] as HTMLDivElement
       dragZone.appendChild(newEvent)
-      this.reorderEvents(event.section)
+      this.updateVertical(event.section)
       this.addDragging(newEvent)
     }
   }
 
   // Reorder events for adjust space and height
-  private reorderEvents = (section: number) => {
+  private updateVertical = (section: number) => {
     const grid = document.getElementById(`${this.rootId}-grid`)
     const sectionRow = grid?.getElementsByClassName('ssche__drag-zone')[section]
     const sectionEvents = Array.from(sectionRow?.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
-
+    sectionEvents.sort((a1, b1) => {
+      const a2 = this.drawnEvents[a1.dataset.id as string]
+      const b2 = this.drawnEvents[b1.dataset.id as string]
+      return (b2.end - b2.start) - (a2.end - a2.start)
+    })
     // Update section height when add or remove for change space
-    const sectionComputedEvents: ComputedEvent[] = []
+    const sectionComputedEvents = [] as ComputedEvent[]
     let maxTop = 0
     sectionEvents.forEach(se => {
-      const topValue = this.calcTop(this.drawnEvents[se.dataset.id as string], sectionComputedEvents)
-      if (maxTop < topValue) maxTop = topValue
+      let topValue = 0
+      topValue = this.calcTop(this.drawnEvents[se.dataset.id as string], sectionComputedEvents)
       se.style.top = `${topValue}px`
       sectionComputedEvents.push(this.drawnEvents[se.dataset.id as string])
+      if (maxTop < topValue) maxTop = topValue
     })
     const eventsContainer = sectionRow?.parentNode as HTMLDivElement
     eventsContainer.style.minHeight = `${maxTop + 26}px`
@@ -607,6 +612,7 @@ class Scheduler {
           computed.end = endDate.getTime()
           computed.endDay = endDate.getDate()
           const startDateStr = startDate.toISOString()
+          endDate.setDate(endDate.getDate() - 1)
           const endDateStr = endDate.toISOString()
           computed.eventFormData.startDate = startDateStr.substring(0, startDateStr.indexOf('T'))
           computed.eventFormData.endDate = endDateStr.substring(0, endDateStr.indexOf('T'))
@@ -619,7 +625,7 @@ class Scheduler {
         if (isDragZone && target !== eventParent) {
           eventParent.removeChild(this.eventDragging as HTMLDivElement)
           target.appendChild(this.eventDragging as HTMLDivElement)
-          this.reorderEvents(computed.section)
+          this.updateVertical(computed.section)
           computed.section = index
           computed.eventFormData.section = this.sections[index].id
           hasMoveY = true
@@ -630,7 +636,7 @@ class Scheduler {
           const { left, size } = this.calcLeftSize(computed)
           event.style.left = `${left}px`
           event.style.width = `${size}px`
-          this.reorderEvents(computed.section)
+          this.updateVertical(computed.section)
           hasMoveX = false
           hasMoveY = false
         }
@@ -705,7 +711,7 @@ class Scheduler {
         this.events = this.events.filter(e => e.id !== id)
         delete this.drawnEvents[id]
         dragZone.removeChild(toRemove)
-        this.reorderEvents(sectionPos)
+        this.updateVertical(sectionPos)
       }
     }
   }
