@@ -1,3 +1,6 @@
+// Base for Scheduler -> UI only works for day complete.
+// If UI with hours is required, look for comments with 'HOURS' key for adjust code.
+
 import '../styles/styles.css'
 
 interface Section {
@@ -452,7 +455,7 @@ class Scheduler {
     const d1 = event.startDate.split('-')
     const d2 = event.endDate.split('-')
     const date1 = new Date(+d1[0], +d1[1] - 1, +d1[2])
-    const date2 = new Date(+d2[0], +d2[1] - 1, +d2[2] + 1)
+    const date2 = new Date(+d2[0], +d2[1] - 1, +d2[2] + 1) // HOURS: Remove '+1' for start to work with hours in UI
     return {
       id: event.id || '',
       eventFormData: event,
@@ -466,7 +469,7 @@ class Scheduler {
 
   // Calc 'top' css prop for vertical positioning in same section
   private calcTop = (event: ComputedEvent, sectionEvents: ComputedEvent[]) => {
-
+    // minTop is '2px' for simulate event is contained in section
     // No section events -> don't need calc anymore
     if (sectionEvents.length === 0) return 2
 
@@ -516,9 +519,9 @@ class Scheduler {
 
     // Calc 'width' size
     const range = end - start
-    const width = this.cellWidth * range - 1
+    const width = this.cellWidth * range - 1 // '-1' for simulate event is contained
     return {
-      left: start * this.cellWidth + 1,
+      left: start * this.cellWidth + 1, // '+1' for simulate event is contained
       size: width > 0 ? width : this.cellWidth
     }
   }
@@ -612,7 +615,7 @@ class Scheduler {
           computed.end = endDate.getTime()
           computed.endDay = endDate.getDate()
           const startDateStr = startDate.toISOString()
-          endDate.setDate(endDate.getDate() - 1)
+          endDate.setDate(endDate.getDate() - 1) // HOURS: Remove '-1' for start to work with hours in UI
           const endDateStr = endDate.toISOString()
           computed.eventFormData.startDate = startDateStr.substring(0, startDateStr.indexOf('T'))
           computed.eventFormData.endDate = endDateStr.substring(0, endDateStr.indexOf('T'))
