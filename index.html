@@ -52,8 +52,9 @@
     })
 
     calendar.onEventUpdatedByDrag((oldEventData, newEventData) => {
-      // Use this callback for update data in backend and manage some error
-      // Update event on interface if error
+      // Use this callback for update data in backend and manage some error.
+      // Update event on interface if error with 'calendar.addEvent' 
+      // or 'calendar.removeEvent' functions
       console.log(oldEventData)
       console.log(newEventData)
     })

@@ -1,5 +1,5 @@
 // Base for Scheduler -> UI only works for day complete.
-// If UI with hours is required, look for comments with 'HOURS' key for adjust code.
+// If UI with hours is required, look for comments with 'HOURS' key for reset code.
 
 import '../styles/styles.css'
 
@@ -542,7 +542,7 @@ class Scheduler {
       const dragZone = grid.getElementsByClassName('ssche__drag-zone')[event.section] as HTMLDivElement
       dragZone.appendChild(newEvent)
       this.updateVertical(event.section)
-      this.addDragging(newEvent)
+      if (!this.onlyRead) this.addDragging(newEvent)
     }
   }
 
