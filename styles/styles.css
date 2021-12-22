@@ -206,6 +206,9 @@
   border-radius: 2px;
   box-shadow: 4px 4px 4px 0 #0000001a;
   z-index: 5;
+  max-height: 80%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .ssche__modal_title {
@@ -245,7 +248,7 @@
   font-family: system-ui;
 }
 
-.ssche__modal_double_row {
+.ssche__modal_multi_row {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -328,4 +331,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   user-select: none;
+}
+
+/* ------------------------------------------------------------ */
+
+.ssche__checkbox-form-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 8px;
+  margin-left: 16px;
 }

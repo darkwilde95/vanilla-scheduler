@@ -6,13 +6,17 @@ import '../styles/styles.css'
 interface Section {
   id: string,
   label: string
+  [key: string]: string
 }
 
 interface ConfigObject {
   root: string
-  sections: Section[],
-  lang?: string,
+  sections: Section[]
+  lang?: string
   onlyRead?: boolean
+  filters?: {
+    [field: string]: string[]
+  }
 }
 
 interface DataEvent {
@@ -37,6 +41,9 @@ interface ComputedEvent {
 
 class Scheduler {
 
+  filters: { [field: string]: string[] } | null = null
+  filtersSelected: { [field: string]: string[] } = {}
+  isFiltering: boolean = false
   onlyRead: boolean = false
   cellWidth: number = 0
   createCallback: Function | null = null
@@ -64,7 +71,8 @@ class Scheduler {
         save: 'Save',
         cancel: 'Cancel',
         present: 'Present',
-        delete: 'Delete'
+        delete: 'Delete',
+        filter: 'Filter'
       },
       labels: {
         description: 'Description',
@@ -82,7 +90,8 @@ class Scheduler {
         save: 'Guardar',
         cancel: 'Cancelar',
         present: 'Presente',
-        delete: 'Borrar'
+        delete: 'Borrar',
+        filter: 'Filtrar'
       },
       labels: {
         description: 'Descripción',
@@ -121,7 +130,7 @@ class Scheduler {
   }
 
   // Draw modal for create an edit (if event is not null => edit mode)
-  private openModal = (event?: DataEvent) => {
+  private createEditModal = (event?: DataEvent) => {
 
     // Draw modal body and overlay
     const body = document.getElementsByTagName('body')[0]
@@ -157,7 +166,7 @@ class Scheduler {
             <label class="ssche__modal_input_label">
               ${this.getTextLang('labels').period}
             </label>
-            <div class="ssche__modal_double_row">
+            <div class="ssche__modal_multi_row">
               <div class="ssche__modal_range_row">
                 <input id="${this.rootId}-start-time" type="time" class="ssche__range-input" />
                 <input id="${this.rootId}-start-date" type="date" class="ssche" />
@@ -195,9 +204,9 @@ class Scheduler {
 
     // Event on cancel button close modal too
     const cancelButton = document.getElementById(`${this.rootId}-modal-cancel`) as HTMLButtonElement
-    cancelButton.addEventListener('click', this.closeModal, true)
+    cancelButton.addEventListener('click', this.closeModal)
     if (this.onlyRead) cancelButton.style.marginRight = '0px'
-    document.addEventListener('keydown', this.closeModalEvent, true)
+    document.addEventListener('keydown', this.closeModalEvent)
 
     const description = document.getElementById(`${this.rootId}-description`) as HTMLTextAreaElement
     const section = document.getElementById(`${this.rootId}-section`) as HTMLSelectElement
@@ -296,13 +305,16 @@ class Scheduler {
   }
 
   // Verify if event is drawable with current month and year
-  private isDrawableNow = (e: ComputedEvent) => {
+  private isDrawableNow = (e: ComputedEvent, availableSections?: string[]) => {
     const startLimit = new Date(this.currentYear, this.currentMonth, 1).getTime()
     const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
     const leftMatch = e.start < startLimit && e.end > startLimit
     const centralMatch = e.start >= startLimit && e.end <= endLimit
     const rightMatch = e.start <= endLimit && e.end > endLimit
-    return leftMatch || centralMatch || rightMatch
+    const horizontalMatch = leftMatch || centralMatch || rightMatch
+    if (availableSections !== undefined)
+      return horizontalMatch && availableSections.includes(e.eventFormData.section)
+    else return horizontalMatch
   }
 
   // Update scheduler when change current month in scheduler controls
@@ -339,9 +351,19 @@ class Scheduler {
     if (heading) {
       heading.innerHTML = `
         ${this.onlyRead ? '<div></div>' : `
-        <button id="${this.rootId}-btn-create" class="ssche__btn ssche__heading_button">
-          ${this.langs[this.lang].actions.create}
-        </button>`}
+        <div style="display: flex; align-items: center; height: 100%">
+          <button id="${this.rootId}-btn-create" class="ssche__btn ssche__heading_button">
+            ${this.langs[this.lang].actions.create}
+          </button>
+          ${this.filters ? `
+          <button 
+            id="${this.rootId}-filters" 
+            style="margin-left: 16px" 
+            class="ssche__btn ssche__heading_button"
+          >
+            ${this.langs[this.lang].actions.filter}
+          </button>` : ''}
+        </div>`}
         <h1 id="${this.rootId}-title">${this.getTextLang('months')[this.currentMonth]} ${this.currentYear}</h1>
         <div class="ssche__heading_controls">
           <div id="${this.rootId}-left-control" class="ssche__control ssche__control_side">
@@ -359,7 +381,12 @@ class Scheduler {
 
     if (!this.onlyRead) {
       const button = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
-      button.addEventListener('click', () => this.openModal())
+      button.addEventListener('click', () => this.createEditModal())
+    }
+
+    if (this.filters) {
+      const filters = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
+      filters.addEventListener('click', () => this.filtersModal())
     }
 
     this.title = document.getElementById(`${this.rootId}-title`) as HTMLHeadingElement
@@ -535,14 +562,14 @@ class Scheduler {
       newEvent.innerHTML = `<span>${event.eventFormData.description}</span>`
       newEvent.classList.add('ssche__event')
       newEvent.dataset['id'] = `${event.eventFormData.id}`
-      newEvent.addEventListener('dblclick', () => this.openModal(event.eventFormData))
+      newEvent.addEventListener('dblclick', () => this.createEditModal(event.eventFormData))
       const { left, size } = this.calcLeftSize(event)
       newEvent.style.left = `${left}px`
       newEvent.style.width = `${size}px`
       const dragZone = grid.getElementsByClassName('ssche__drag-zone')[event.section] as HTMLDivElement
       dragZone.appendChild(newEvent)
       this.updateVertical(event.section)
-      this.addDragging(newEvent)
+      if (!this.onlyRead) this.addDragging(newEvent)
     }
   }
 
@@ -660,11 +687,102 @@ class Scheduler {
     event.onmousedown = dragMouseDown
   }
 
+  // Filters modal
+  private filtersModal = () => {
+    // Draw modal body and overlay
+    if (this.filters) {
+      const body = document.getElementsByTagName('body')[0]
+      const overlay = document.createElement('div')
+      overlay.id = `${this.rootId}-modal`
+      overlay.classList.add('ssche__overlay')
+      overlay.innerHTML = `
+        <div class="ssche__modal_body">
+          <h2 class="ssche__modal_title">
+            ${this.getTextLang('actions').filter}
+          </h2>
+          <div class="ssche__modal_content">
+            ${Object.keys(this.filters).reduce((acc, curr) => acc + this.filterField(curr), '')}
+            <div class="ssche__modal_actions">
+              <button class="ssche__btn ssche__modal_btn_delete" id="${this.rootId}-modal-remove">
+                ${this.getTextLang('actions').cancel}
+              </button>
+              <button class="ssche__btn ssche__modal_btn_cancel" id="${this.rootId}-modal-cancel">
+                ${this.getTextLang('actions').cancel}
+              </button>
+              <button class="ssche__btn ssche__modal_btn_save" id="${this.rootId}-modal-filter">
+                ${this.getTextLang('actions').filter}
+              </button>
+            </div>
+          </div>
+        </div>
+      `
+      body.appendChild(overlay)
+      const cancelButton = document.getElementById(`${this.rootId}-modal-cancel`) as HTMLButtonElement
+      cancelButton.addEventListener('click', this.closeModal)
+      overlay.addEventListener('click', event => {
+        const target = event.target as HTMLElement
+        if (target.id === `${this.rootId}-modal`) this.closeModal()
+      })
+      document.addEventListener('keydown', this.closeModalEvent)
+
+      // Filter action
+      const filterButton = document.getElementById(`${this.rootId}-modal-filter`) as HTMLButtonElement
+      filterButton.addEventListener('click', () => {
+        if (this.filters) {
+          Object.keys(this.filters).forEach(field => {
+            const checked = overlay.querySelectorAll<HTMLInputElement>(`.${field}-filter:checked`)
+            console.log(checked)
+            if (checked.length > 0) {
+              const list = Array.from(checked)
+              this.filtersSelected[field] = list.map(checkbox => checkbox.value)
+            }
+          })
+          console.log(this.filtersSelected)
+          this.closeModal()
+        }
+      })
+
+      // Load previows filters
+
+    }
+  }
+
+  private filterField = (field: string) => {
+    if (this.filters) {
+      return `
+        <div class="ssche__modal_form_row">
+          <p style="margin: 0; line-height: 1;" class="ssche__modal_input_label">
+            ${field}:
+          </p>
+          <div class="ssche__modal_multi_row">
+            ${this.filters[field].reduce((acc, curr, i) => acc + `              
+              <div class="ssche__checkbox-form-group">
+                <input 
+                  id="${this.rootId}-${field}-${i}"
+                  type="checkbox"
+                  class="${field}-filter"
+                  value="${curr}"
+                />
+                <label 
+                  style="display: flex; align-items: center;"
+                  for="${this.rootId}-${field}-${i}"
+                >
+                  ${curr}
+                </label>
+              </div>
+            `, '')}
+          </div>
+        </div>
+      `
+    } else return ''
+  }
+
   constructor(config: ConfigObject) {
     this.rootId = config.root
     this.onlyRead = config.onlyRead || false
     const root = document.getElementById(this.rootId)
     this.sections = config.sections
+    if ('filters' in config) this.filters = config.filters || null
     if (config.lang) this.lang = config.lang
     if (root) root.classList.add('ssche__container')
     else throw new Error("Root HTML Element doesn't exists.")
