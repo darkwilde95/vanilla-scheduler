@@ -51,6 +51,7 @@ class Scheduler {
   editCallback: Function | null = null
   eventDraggedCallback: Function | null = null
   sections: Section[] = []
+  drawnSections: Section[] = []
   totalDays = 0
   title: HTMLHeadingElement | null = null
   lang = 'en'
@@ -72,7 +73,8 @@ class Scheduler {
         cancel: 'Cancel',
         present: 'Present',
         delete: 'Delete',
-        filter: 'Filter'
+        filter: 'Filter',
+        removeFilter: 'Delete filter'
       },
       labels: {
         description: 'Description',
@@ -91,7 +93,8 @@ class Scheduler {
         cancel: 'Cancelar',
         present: 'Presente',
         delete: 'Borrar',
-        filter: 'Filtrar'
+        filter: 'Filtrar',
+        removeFilter: 'Borrar filtros'
       },
       labels: {
         description: 'Descripción',
@@ -131,6 +134,14 @@ class Scheduler {
 
   // Draw modal for create an edit (if event is not null => edit mode)
   private createEditModal = (event?: DataEvent) => {
+
+    // Disable buttons for re-open modals
+    const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
+    createButton.disabled = true
+    if (this.filters) {
+      const filtersButton = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
+      filtersButton.disabled = true
+    }
 
     // Draw modal body and overlay
     const body = document.getElementsByTagName('body')[0]
@@ -194,7 +205,7 @@ class Scheduler {
       </div>
     `
     body.appendChild(overlay)
-    this.appendSelectOptions(this.sections, document.getElementById(`${this.rootId}-section`) as HTMLSelectElement)
+    this.appendSelectOptions(this.drawnSections, document.getElementById(`${this.rootId}-section`) as HTMLSelectElement)
 
     // Close modal when click overlay
     overlay.addEventListener('click', event => {
@@ -301,24 +312,31 @@ class Scheduler {
     const body = document.getElementsByTagName('body')[0]
     const modal = document.getElementById(`${this.rootId}-modal`)
     if (modal) body.removeChild(modal)
-    document.removeEventListener('keydown', this.closeModalEvent, true)
+    const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
+    createButton.disabled = false
+    if (this.filters) {
+      const filtersButton = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
+      filtersButton.disabled = false
+    }
+    document.removeEventListener('keydown', this.closeModalEvent)
+
   }
 
   // Verify if event is drawable with current month and year
-  private isDrawableNow = (e: ComputedEvent, availableSections?: string[]) => {
+  private isDrawableNow = (e: ComputedEvent) => {
     const startLimit = new Date(this.currentYear, this.currentMonth, 1).getTime()
     const endLimit = new Date(this.currentYear, this.currentMonth + 1, 0).getTime()
     const leftMatch = e.start < startLimit && e.end > startLimit
     const centralMatch = e.start >= startLimit && e.end <= endLimit
     const rightMatch = e.start <= endLimit && e.end > endLimit
     const horizontalMatch = leftMatch || centralMatch || rightMatch
-    if (availableSections !== undefined)
-      return horizontalMatch && availableSections.includes(e.eventFormData.section)
+    if (this.drawnSections.length !== this.sections.length)
+      return horizontalMatch && this.drawnSections.map(s => s.id).includes(e.eventFormData.section)
     else return horizontalMatch
   }
 
   // Update scheduler when change current month in scheduler controls
-  private updateScheduler = () => {
+  private updateScheduler = (wasFiltered = false) => {
     if (this.title) this.title.innerText = `${this.getTextLang('months')[this.currentMonth]} ${this.currentYear}`
     const currentGrid = document.getElementById(`${this.rootId}-grid`)
     if (this.rootId) {
@@ -337,6 +355,7 @@ class Scheduler {
         root.append(newGrid)
         this.createGrid()
         this.drawnEvents = {}
+        if (wasFiltered) this.events = this.events.map(e => this.computeEvent(e.eventFormData))
         this.events.filter(e => this.isDrawableNow(e)).forEach(e => {
           this.drawnEvents[e.id] = e
           this.drawEvent(e)
@@ -422,7 +441,7 @@ class Scheduler {
     const grid = document.getElementById(`${this.rootId}-grid`) as HTMLDivElement
 
     // Creating rows by # sections 
-    this.sections.forEach(s => {
+    this.drawnSections.forEach(s => {
       const sectionLabel = document.createElement('div')
       sectionLabel.classList.add('section-label')
       sectionLabel.innerText = s.label
@@ -478,7 +497,7 @@ class Scheduler {
 
   // Get event data for easy calc later
   private computeEvent = (event: DataEvent): ComputedEvent => {
-    const section = this.sections.map(s => s.id).indexOf(event.section)
+    const section = this.drawnSections.map(s => s.id).indexOf(event.section)
     const d1 = event.startDate.split('-')
     const d2 = event.endDate.split('-')
     const date1 = new Date(+d1[0], +d1[1] - 1, +d1[2])
@@ -657,7 +676,7 @@ class Scheduler {
           target.appendChild(this.eventDragging as HTMLDivElement)
           this.updateVertical(computed.section)
           computed.section = index
-          computed.eventFormData.section = this.sections[index].id
+          computed.eventFormData.section = this.drawnSections[index].id
           hasMoveY = true
         }
 
@@ -689,8 +708,15 @@ class Scheduler {
 
   // Filters modal
   private filtersModal = () => {
-    // Draw modal body and overlay
+    // Do only if filters have been supplied
     if (this.filters) {
+      // Disable buttons for re-open modals
+      const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
+      createButton.disabled = true
+      const filtersButton = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
+      filtersButton.disabled = true
+
+      // Draw modal body and overlay
       const body = document.getElementsByTagName('body')[0]
       const overlay = document.createElement('div')
       overlay.id = `${this.rootId}-modal`
@@ -704,7 +730,7 @@ class Scheduler {
             ${Object.keys(this.filters).reduce((acc, curr) => acc + this.filterField(curr), '')}
             <div class="ssche__modal_actions">
               <button class="ssche__btn ssche__modal_btn_delete" id="${this.rootId}-modal-remove">
-                ${this.getTextLang('actions').cancel}
+                ${this.getTextLang('actions').removeFilter}
               </button>
               <button class="ssche__btn ssche__modal_btn_cancel" id="${this.rootId}-modal-cancel">
                 ${this.getTextLang('actions').cancel}
@@ -731,22 +757,60 @@ class Scheduler {
         if (this.filters) {
           Object.keys(this.filters).forEach(field => {
             const checked = overlay.querySelectorAll<HTMLInputElement>(`.${field}-filter:checked`)
-            console.log(checked)
             if (checked.length > 0) {
-              const list = Array.from(checked)
-              this.filtersSelected[field] = list.map(checkbox => checkbox.value)
+              this.filtersSelected[field] = Array.from(checked).map(checkbox => checkbox.value)
             }
           })
-          console.log(this.filtersSelected)
           this.closeModal()
+          if (Object.keys(this.filtersSelected).length > 0) filtersButton.classList.add('ssche__button-active')
+          this.drawnSections = this.sections.filter(section => {
+            let match = true
+            Object.keys(this.filtersSelected).forEach(field => {
+              match = match && this.filtersSelected[field].includes(section[field])
+            })
+            return match
+          })
+          this.updateScheduler(true)
         }
       })
 
-      // Load previows filters
+      // Add 1-minimum checked option listener for turn available filter button
+      const checkboxes = Array.from(overlay.querySelectorAll<HTMLInputElement>(`input[type="checkbox"]`))
+      const disableButton = () => {
+        const disabled = checkboxes.reduce((acc, curr) => {
+          return acc && !curr.checked
+        }, true)
+        filterButton.disabled = disabled
+      }
+      checkboxes.forEach(checkbox => { checkbox.addEventListener('change', () => disableButton()) })
+      disableButton()
 
+      // Remove filters action
+      const removeFilter = document.getElementById(`${this.rootId}-modal-remove`) as HTMLButtonElement
+      removeFilter.addEventListener('click', () => {
+        this.filtersSelected = {}
+        const checkboxes = Array.from(overlay.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))
+        checkboxes.forEach(checkbox => { checkbox.checked = false })
+        filtersButton.classList.remove('ssche__button-active')
+        this.closeModal()
+        this.drawnSections = [...this.sections]
+        this.updateScheduler(true)
+      })
+
+      // Load previows filters
+      const fields = Object.keys(this.filtersSelected)
+      if (fields.length > 0) {
+        fields.forEach(field => {
+          this.filtersSelected[field].forEach(option => {
+            const checkbox = overlay.querySelector(`.${field}-filter[value="${option}"]`) as HTMLInputElement
+            checkbox.checked = true
+          })
+        })
+      }
     }
   }
 
+  // String of html field checkboxes
   private filterField = (field: string) => {
     if (this.filters) {
       return `
@@ -781,7 +845,8 @@ class Scheduler {
     this.rootId = config.root
     this.onlyRead = config.onlyRead || false
     const root = document.getElementById(this.rootId)
-    this.sections = config.sections
+    this.sections = [...config.sections]
+    this.drawnSections = config.sections
     if ('filters' in config) this.filters = config.filters || null
     if (config.lang) this.lang = config.lang
     if (root) root.classList.add('ssche__container')

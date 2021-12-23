@@ -69,7 +69,9 @@
   background-color: #edf8ff;
 }
 
-.ssche__heading_button:active {
+.ssche__heading_button:active, 
+.ssche__button-active, 
+.ssche__button-active:hover {
   color: white;
   background-color: #0288d1;
 }
