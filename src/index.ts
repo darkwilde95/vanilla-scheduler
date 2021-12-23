@@ -361,13 +361,14 @@ class Scheduler {
           this.drawEvent(e)
         })
       }
-    } else throw new Error("Root HTML Element doesn't exists.")
+    } else throw new Error("Root HTML Element doesn't exist.")
   }
 
   // Draw Scheduler controls 
   private createHeading = () => {
-    const heading = document.getElementById(`${this.rootId}-heading`) as HTMLDivElement
-    if (heading) {
+    const heading = document.getElementById(`${this.rootId}-heading`)
+    if (!heading) throw new Error("Root HTML Element doesn't exist.")
+    else {
       heading.innerHTML = `
         ${this.onlyRead ? '<div></div>' : `
         <div style="display: flex; align-items: center; height: 100%">
@@ -396,103 +397,104 @@ class Scheduler {
           </div>
         </div>
       `
-    }
-
-    if (!this.onlyRead) {
-      const button = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
-      button.addEventListener('click', () => this.createEditModal())
-    }
-
-    if (this.filters) {
-      const filters = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
-      filters.addEventListener('click', () => this.filtersModal())
-    }
-
-    this.title = document.getElementById(`${this.rootId}-title`) as HTMLHeadingElement
-    const leftControl = document.getElementById(`${this.rootId}-left-control`) as HTMLDivElement
-    leftControl.addEventListener('click', () => {
-      this.currentMonth -= 1
-      if (this.currentMonth < 0) {
-        this.currentMonth = 11
-        this.currentYear -= 1
+      if (!this.onlyRead) {
+        const button = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
+        button.addEventListener('click', () => this.createEditModal())
       }
-      this.updateScheduler()
-    })
-    const rightControl = document.getElementById(`${this.rootId}-right-control`) as HTMLDivElement
-    rightControl.addEventListener('click', () => {
-      this.currentMonth += 1
-      if (this.currentMonth > 11) {
-        this.currentMonth = 0
-        this.currentYear += 1
+
+      if (this.filters) {
+        const filters = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
+        filters.addEventListener('click', () => this.filtersModal())
       }
-      this.updateScheduler()
-    })
-    const presentControl = document.getElementById(`${this.rootId}-present-control`) as HTMLDivElement
-    presentControl.addEventListener('click', () => {
-      const currentDate = new Date()
-      this.currentMonth = currentDate.getMonth()
-      this.currentYear = currentDate.getFullYear()
-      this.updateScheduler()
-    })
+
+      this.title = document.getElementById(`${this.rootId}-title`) as HTMLHeadingElement
+      const leftControl = document.getElementById(`${this.rootId}-left-control`) as HTMLDivElement
+      leftControl.addEventListener('click', () => {
+        this.currentMonth -= 1
+        if (this.currentMonth < 0) {
+          this.currentMonth = 11
+          this.currentYear -= 1
+        }
+        this.updateScheduler()
+      })
+      const rightControl = document.getElementById(`${this.rootId}-right-control`) as HTMLDivElement
+      rightControl.addEventListener('click', () => {
+        this.currentMonth += 1
+        if (this.currentMonth > 11) {
+          this.currentMonth = 0
+          this.currentYear += 1
+        }
+        this.updateScheduler()
+      })
+      const presentControl = document.getElementById(`${this.rootId}-present-control`) as HTMLDivElement
+      presentControl.addEventListener('click', () => {
+        const currentDate = new Date()
+        this.currentMonth = currentDate.getMonth()
+        this.currentYear = currentDate.getFullYear()
+        this.updateScheduler()
+      })
+    }
   }
 
   // Draw Grid
   private createGrid = () => {
-    const grid = document.getElementById(`${this.rootId}-grid`) as HTMLDivElement
+    const grid = document.getElementById(`${this.rootId}-grid`)
+    if (!grid) throw new Error("Root HTML Element doesn't exist.")
+    else {
+      // Creating rows by # sections 
+      this.drawnSections.forEach(s => {
+        const sectionLabel = document.createElement('div')
+        sectionLabel.classList.add('section-label')
+        sectionLabel.innerText = s.label
+        const eventsContainer = document.createElement('div')
+        eventsContainer.classList.add('events-container')
+        eventsContainer.style.position = 'relative'
+        grid.appendChild(sectionLabel)
+        grid.appendChild(eventsContainer)
+      })
 
-    // Creating rows by # sections 
-    this.drawnSections.forEach(s => {
-      const sectionLabel = document.createElement('div')
-      sectionLabel.classList.add('section-label')
-      sectionLabel.innerText = s.label
-      const eventsContainer = document.createElement('div')
-      eventsContainer.classList.add('events-container')
-      eventsContainer.style.position = 'relative'
-      grid.appendChild(sectionLabel)
-      grid.appendChild(eventsContainer)
-    })
+      // Creating table head
+      const headingCell = grid.getElementsByClassName('day-labels')[0] as HTMLDivElement
+      headingCell.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(40px, 1fr))`
 
-    // Creating table head
-    const headingCell = grid.getElementsByClassName('day-labels')[0] as HTMLDivElement
-    headingCell.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(40px, 1fr))`
-
-    for (let i = 0; i < this.totalDays; i++) {
-      const cell = document.createElement('div')
-      cell.innerText = `${i + 1}`
-      headingCell.appendChild(cell)
-    }
-
-    // Creating cells time limits and dragging zones
-    const eventsContainer = Array.from(grid.getElementsByClassName('events-container') as HTMLCollectionOf<HTMLDivElement>)
-    eventsContainer.forEach(ec => {
-      const cells = document.createElement('div')
-      const dragZone = document.createElement('div')
-      cells.classList.add('ssche__cells')
-      cells.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(40px, 1fr))`
-      dragZone.classList.add('ssche__drag-zone')
       for (let i = 0; i < this.totalDays; i++) {
-        cells.appendChild(document.createElement('div'))
+        const cell = document.createElement('div')
+        cell.innerText = `${i + 1}`
+        headingCell.appendChild(cell)
       }
-      ec.appendChild(dragZone)
-      ec.appendChild(cells)
-    })
 
-    // Get cell width for calculate times and event width
-    const aux = document.getElementsByClassName('ssche__cells')[0].childNodes[0] as HTMLDivElement
-    this.cellWidth = aux.getClientRects()[0].width
+      // Creating cells time limits and dragging zones
+      const eventsContainer = Array.from(grid.getElementsByClassName('events-container') as HTMLCollectionOf<HTMLDivElement>)
+      eventsContainer.forEach(ec => {
+        const cells = document.createElement('div')
+        const dragZone = document.createElement('div')
+        cells.classList.add('ssche__cells')
+        cells.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(40px, 1fr))`
+        dragZone.classList.add('ssche__drag-zone')
+        for (let i = 0; i < this.totalDays; i++) {
+          cells.appendChild(document.createElement('div'))
+        }
+        ec.appendChild(dragZone)
+        ec.appendChild(cells)
+      })
 
-    // Event for resize events width when window resizes
-    window.addEventListener('resize', () => {
+      // Get cell width for calculate times and event width
       const aux = document.getElementsByClassName('ssche__cells')[0].childNodes[0] as HTMLDivElement
       this.cellWidth = aux.getClientRects()[0].width
-      const events = Array.from(grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
-      events.forEach(ev => {
-        this.calcLeftSize(this.drawnEvents[ev.dataset.id as string])
-        const { left, size } = this.calcLeftSize(this.drawnEvents[ev.dataset.id as string])
-        ev.style.left = `${left}px`
-        ev.style.width = `${size}px`
+
+      // Event for resize events width when window resizes
+      window.addEventListener('resize', () => {
+        const aux = document.getElementsByClassName('ssche__cells')[0].childNodes[0] as HTMLDivElement
+        this.cellWidth = aux.getClientRects()[0].width
+        const events = Array.from(grid.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
+        events.forEach(ev => {
+          this.calcLeftSize(this.drawnEvents[ev.dataset.id as string])
+          const { left, size } = this.calcLeftSize(this.drawnEvents[ev.dataset.id as string])
+          ev.style.left = `${left}px`
+          ev.style.width = `${size}px`
+        })
       })
-    })
+    }
   }
 
   // Get event data for easy calc later
@@ -517,42 +519,45 @@ class Scheduler {
   private calcTop = (event: ComputedEvent, sectionEvents: ComputedEvent[]) => {
     // minTop is '2px' for simulate event is contained in section
     // No section events -> don't need calc anymore
-    if (sectionEvents.length === 0) return 2
-
-    // Calc all possible date matches of date in section events
-    const matches = sectionEvents.reduce((acc, sectionEvent) => {
-      if (sectionEvent.id === event.id) return acc
-      const leftMatch = sectionEvent.start < event.start && sectionEvent.end > event.start
-      const isContainer = sectionEvent.start >= event.start && sectionEvent.end <= event.end
-      const isContained = sectionEvent.start < event.start && sectionEvent.end > event.end
-      const rightMatch = sectionEvent.start < event.end && sectionEvent.end > event.end
-      if (leftMatch || rightMatch || isContainer || isContained) return [...acc, sectionEvent]
-      return acc
-    }, [] as ComputedEvent[])
-
-    // Get 'top' measurements for calc max
     const grid = document.getElementById(`${this.rootId}-grid`) as HTMLDivElement
-    const tops = matches.reduce((acc, curr) => {
-      const e = grid?.querySelector(`div.ssche__event[data-id="${curr.id}"]`) as HTMLDivElement
-      if (e === null) return acc
-      const topString = e.style.top
-      const topNumber = +topString.substring(0, topString.length - 2)
-      return [...acc, topNumber - 2]
-    }, [] as number[]).sort((a, b) => a - b)
+    if (!grid) throw new Error("Root HTML Element doesn't exist.")
+    else {
+      if (sectionEvents.length === 0) return 2
 
-    // No matches
-    if (tops.length === 0) return 2
+      // Calc all possible date matches of date in section events
+      const matches = sectionEvents.reduce((acc, sectionEvent) => {
+        if (sectionEvent.id === event.id) return acc
+        const leftMatch = sectionEvent.start < event.start && sectionEvent.end > event.start
+        const isContainer = sectionEvent.start >= event.start && sectionEvent.end <= event.end
+        const isContained = sectionEvent.start < event.start && sectionEvent.end > event.end
+        const rightMatch = sectionEvent.start < event.end && sectionEvent.end > event.end
+        if (leftMatch || rightMatch || isContainer || isContained) return [...acc, sectionEvent]
+        return acc
+      }, [] as ComputedEvent[])
 
-    // there's a space on top of section
-    if (tops[0] !== 0) return 2
+      // Get 'top' measurements for calc max
+      const tops = matches.reduce((acc, curr) => {
+        const e = grid.querySelector(`div.ssche__event[data-id="${curr.id}"]`) as HTMLDivElement
+        if (e === null) return acc
+        const topString = e.style.top
+        const topNumber = +topString.substring(0, topString.length - 2)
+        return [...acc, topNumber - 2]
+      }, [] as number[]).sort((a, b) => a - b)
 
-    // Looking for possible spaces
-    for (let i = 1; i < tops.length; i++) {
-      if (tops[i] > tops[i - 1] + 26) {
-        return tops[i - 1] + 28
+      // No matches
+      if (tops.length === 0) return 2
+
+      // there's a space on top of section
+      if (tops[0] !== 0) return 2
+
+      // Looking for possible spaces
+      for (let i = 1; i < tops.length; i++) {
+        if (tops[i] > tops[i - 1] + 26) {
+          return tops[i - 1] + 28
+        }
       }
+      return tops[tops.length - 1] + 28
     }
-    return tops[tops.length - 1] + 28
   }
 
   // Calc 'left' and 'width' css props for horizontal positioning and space
@@ -575,7 +580,7 @@ class Scheduler {
   // Function for draw event (Only use when is sure a event must be drawn)
   private drawEvent = (event: ComputedEvent) => {
     const grid = document.getElementById(`${this.rootId}-grid`)
-    if (!grid) throw new Error("Grid doesn't exists.")
+    if (!grid) throw new Error("Root HTML Element doesn't exist.")
     else {
       const newEvent = document.createElement('div')
       newEvent.innerHTML = `<span>${event.eventFormData.description}</span>`
@@ -595,25 +600,28 @@ class Scheduler {
   // Reorder events for adjust space and height
   private updateVertical = (section: number) => {
     const grid = document.getElementById(`${this.rootId}-grid`)
-    const sectionRow = grid?.getElementsByClassName('ssche__drag-zone')[section]
-    const sectionEvents = Array.from(sectionRow?.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
-    sectionEvents.sort((a1, b1) => {
-      const a2 = this.drawnEvents[a1.dataset.id as string]
-      const b2 = this.drawnEvents[b1.dataset.id as string]
-      return (b2.end - b2.start) - (a2.end - a2.start)
-    })
-    // Update section height when add or remove for change space
-    const sectionComputedEvents = [] as ComputedEvent[]
-    let maxTop = 0
-    sectionEvents.forEach(se => {
-      let topValue = 0
-      topValue = this.calcTop(this.drawnEvents[se.dataset.id as string], sectionComputedEvents)
-      se.style.top = `${topValue}px`
-      sectionComputedEvents.push(this.drawnEvents[se.dataset.id as string])
-      if (maxTop < topValue) maxTop = topValue
-    })
-    const eventsContainer = sectionRow?.parentNode as HTMLDivElement
-    eventsContainer.style.minHeight = `${maxTop + 26}px`
+    if (!grid) throw new Error("Root HTML Element doesn't exist.")
+    else {
+      const sectionRow = grid.getElementsByClassName('ssche__drag-zone')[section]
+      const sectionEvents = Array.from(sectionRow?.getElementsByClassName('ssche__event') as HTMLCollectionOf<HTMLDivElement>)
+      sectionEvents.sort((a1, b1) => {
+        const a2 = this.drawnEvents[a1.dataset.id as string]
+        const b2 = this.drawnEvents[b1.dataset.id as string]
+        return (b2.end - b2.start) - (a2.end - a2.start)
+      })
+      // Update section height when add or remove for change space
+      const sectionComputedEvents = [] as ComputedEvent[]
+      let maxTop = 0
+      sectionEvents.forEach(se => {
+        let topValue = 0
+        topValue = this.calcTop(this.drawnEvents[se.dataset.id as string], sectionComputedEvents)
+        se.style.top = `${topValue}px`
+        sectionComputedEvents.push(this.drawnEvents[se.dataset.id as string])
+        if (maxTop < topValue) maxTop = topValue
+      })
+      const eventsContainer = sectionRow?.parentNode as HTMLDivElement
+      eventsContainer.style.minHeight = `${maxTop + 26}px`
+    }
   }
 
   // Horizontal draggin feature
@@ -850,7 +858,7 @@ class Scheduler {
     if ('filters' in config) this.filters = config.filters || null
     if (config.lang) this.lang = config.lang
     if (root) root.classList.add('ssche__container')
-    else throw new Error("Root HTML Element doesn't exists.")
+    else throw new Error("Root HTML Element doesn't exist.")
     const date = new Date(this.currentYear, this.currentMonth + 1, 0)
     this.totalDays = date.getDate()
     root.innerHTML = `
