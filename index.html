@@ -17,27 +17,28 @@
 <body>
   <div id='calendar'></div>
   <script>
-    var id = 1 // for simulate id from backend
+    var id = 1 // Simulate id of creation on backend
     const calendar = new Scheduler({
       root: 'calendar',
       sections: [
-        { id: '1', label: 'section 1' },
-        { id: '2', label: 'section 2' },
-        { id: '3', label: 'section 3' },
-        { id: '4', label: 'section 4' },
-        { id: '5', label: 'section 5' },
-        { id: '6', label: 'section 6' },
-        { id: '7', label: 'section 7' },
-        { id: '8', label: 'section 8' },
-        { id: '9', label: 'section 9' },
-        { id: '10', label: 'section 10' },
+        { id: '1', label: 'section 1', a: 'propA-1', b: 'propB-1' },
+        { id: '2', label: 'section 2', a: 'propA-1', b: 'propB-2' },
+        { id: '3', label: 'section 3', a: 'propA-1', b: 'propB-1' },
+        { id: '4', label: 'section 4', a: 'propA-2', b: 'propB-1' },
+        { id: '5', label: 'section 5', a: 'propA-2', b: 'propB-2' },
       ],
       lang: 'en',
+      filters: {
+        // 'field': string[] of posible options
+        propA: ['propA-1', 'propA-2'],
+        propB: ['propB-1', 'propB-2']
+      },
       onlyRead: false
     })
 
     calendar.onEventCreated(eventCreatedData => {
-      calendar.addEvent({ id: `${id++}`, ...eventCreatedData })
+      const newEvent = { id: `${id++}`, ...eventCreatedData }
+      calendar.addEvent(newEvent)
     })
 
     calendar.onEventEdited((oldEventData, newEventData) => {
