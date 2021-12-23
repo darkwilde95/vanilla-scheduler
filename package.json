@@ -1,7 +1,7 @@
 {
   "name": "st_scheduler",
   "version": "1.0.0",
-  "description": "",
+  "description": "Vanilla Timeline Scheduler",
   "main": "./dist/scheduler.var.js",
   "module": "./dist/scheduler.umd.js",
   "scripts": {
@@ -9,7 +9,7 @@
     "build:var": "webpack build --config ./webpack-var.config.js",
     "build": "npm run build:module && npm run build:var"
   },
-  "author": "",
+  "author": "Soluntech (darkwilde95)",
   "license": "ISC",
   "devDependencies": {
     "css-loader": "^6.5.1",
@@ -18,6 +18,5 @@
     "typescript": "^4.4.4",
     "webpack": "^5.64.1",
     "webpack-cli": "^4.9.1"
-  },
-  "dependencies": {}
+  }
 }

@@ -9,7 +9,16 @@ interface Section {
   [key: string]: string
 }
 
-interface ConfigObject {
+interface SectionConfig {
+  propToVerify: string
+  optionsToApply: string[]
+  colorState: {
+    background: string
+    text?: string
+    border?: string
+  }
+}
+interface ConstructorConfig {
   root: string
   sections: Section[]
   lang?: string
@@ -17,6 +26,7 @@ interface ConfigObject {
   filters?: {
     [field: string]: string[]
   }
+  sectionConfigs?: SectionConfig[]
 }
 
 interface DataEvent {
@@ -43,6 +53,7 @@ class Scheduler {
 
   filters: { [field: string]: string[] } | null = null
   filtersSelected: { [field: string]: string[] } = {}
+  sectionsConfigs: SectionConfig[] = []
   isFiltering: boolean = false
   onlyRead: boolean = false
   cellWidth: number = 0
@@ -442,7 +453,7 @@ class Scheduler {
     if (!grid) throw new Error("Root HTML Element doesn't exist.")
     else {
       // Creating rows by # sections 
-      this.drawnSections.forEach(s => {
+      this.drawnSections.forEach((s, index) => {
         const sectionLabel = document.createElement('div')
         sectionLabel.classList.add('section-label')
         sectionLabel.innerText = s.label
@@ -451,6 +462,13 @@ class Scheduler {
         eventsContainer.style.position = 'relative'
         grid.appendChild(sectionLabel)
         grid.appendChild(eventsContainer)
+        this.sectionsConfigs.forEach(sectionConfig => {
+          if (sectionConfig.optionsToApply.includes(s[sectionConfig.propToVerify])) {
+            sectionLabel.style.backgroundColor = sectionConfig.colorState.background
+            if (sectionConfig.colorState.text) sectionLabel.style.color = sectionConfig.colorState.text
+            if (sectionConfig.colorState.border) sectionLabel.style.borderColor = sectionConfig.colorState.border
+          }
+        })
       })
 
       // Creating table head
@@ -465,14 +483,21 @@ class Scheduler {
 
       // Creating cells time limits and dragging zones
       const eventsContainer = Array.from(grid.getElementsByClassName('events-container') as HTMLCollectionOf<HTMLDivElement>)
-      eventsContainer.forEach(ec => {
+      eventsContainer.forEach((ec, index) => {
         const cells = document.createElement('div')
         const dragZone = document.createElement('div')
         cells.classList.add('ssche__cells')
         cells.style.gridTemplateColumns = `repeat(${this.totalDays}, minmax(40px, 1fr))`
         dragZone.classList.add('ssche__drag-zone')
         for (let i = 0; i < this.totalDays; i++) {
-          cells.appendChild(document.createElement('div'))
+          const cell = document.createElement('div')
+          cells.appendChild(cell)
+          this.sectionsConfigs.forEach(sectionConfig => {
+            if (sectionConfig.optionsToApply.includes(this.drawnSections[index][sectionConfig.propToVerify])) {
+              cell.style.backgroundColor = sectionConfig.colorState.background
+              if (sectionConfig.colorState.border) cell.style.borderColor = sectionConfig.colorState.border
+            }
+          })
         }
         ec.appendChild(dragZone)
         ec.appendChild(cells)
@@ -763,6 +788,7 @@ class Scheduler {
       const filterButton = document.getElementById(`${this.rootId}-modal-filter`) as HTMLButtonElement
       filterButton.addEventListener('click', () => {
         if (this.filters) {
+          this.filtersSelected = {}
           Object.keys(this.filters).forEach(field => {
             const checked = overlay.querySelectorAll<HTMLInputElement>(`.${field}-filter:checked`)
             if (checked.length > 0) {
@@ -849,12 +875,35 @@ class Scheduler {
     } else return ''
   }
 
-  constructor(config: ConfigObject) {
+  private sectionUISettings = (currentIndex: number) => {
+    const grid = document.getElementById(`${this.rootId}-grid`)
+    if (!grid) throw new Error('')
+    else {
+      const sectionData = this.sections[currentIndex]
+      const sectionTitle = grid.getElementsByClassName('section-label')[currentIndex] as HTMLDivElement
+      const sectionBody = grid.getElementsByClassName('events-container')[currentIndex] as HTMLDivElement
+      this.sectionsConfigs.forEach(sectionConfig => {
+        if (sectionConfig.optionsToApply.includes(sectionData[sectionConfig.propToVerify])) {
+          sectionTitle.style.backgroundColor = sectionConfig.colorState.background
+          if (sectionConfig.colorState.text) sectionTitle.style.color = sectionConfig.colorState.text
+          if (sectionConfig.colorState.border) sectionTitle.style.borderColor = sectionConfig.colorState.border
+          const cells = Array.from(sectionBody.childNodes[1].childNodes) as HTMLDivElement[]
+          cells.forEach(cell => {
+            cell.style.backgroundColor = sectionConfig.colorState.background
+            if (sectionConfig.colorState.border) cell.style.borderColor = sectionConfig.colorState.border
+          })
+        }
+      })
+    }
+  }
+
+  constructor(config: ConstructorConfig) {
     this.rootId = config.root
     this.onlyRead = config.onlyRead || false
     const root = document.getElementById(this.rootId)
     this.sections = [...config.sections]
     this.drawnSections = config.sections
+    this.sectionsConfigs = config.sectionConfigs || []
     if ('filters' in config) this.filters = config.filters || null
     if (config.lang) this.lang = config.lang
     if (root) root.classList.add('ssche__container')
@@ -908,6 +957,14 @@ class Scheduler {
         this.updateVertical(sectionPos)
       }
     }
+  }
+
+  public updateSectionData = (id: string, sectionData: Section) => {
+    const section = this.sections.find(s => s.id === id) as Section
+    Object.keys(section).forEach(field => {
+      if (field !== 'id') section[field] = sectionData[field]
+    })
+    this.sectionUISettings(this.drawnSections.map(s => s.id).indexOf(section.id))
   }
 }
 
