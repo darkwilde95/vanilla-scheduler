@@ -250,6 +250,12 @@
   font-family: system-ui;
 }
 
+.ssche__modal_input[type="date"] {
+  min-width: 150px;
+  width: auto;
+  height: auto;
+}
+
 .ssche__modal_multi_row {
   display: flex;
   flex-direction: column;
@@ -259,6 +265,7 @@
 .ssche__modal_range_row {
   display: flex;
   margin-bottom: 16px;
+  height: 24px;
 }
 
 .ssche__modal_range_row .ssche__range-input {

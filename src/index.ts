@@ -191,11 +191,11 @@ class Scheduler {
             <div class="ssche__modal_multi_row">
               <div class="ssche__modal_range_row">
                 <input id="${this.rootId}-start-time" type="time" class="ssche__range-input" />
-                <input id="${this.rootId}-start-date" type="date" class="ssche" />
+                <input id="${this.rootId}-start-date" type="date" class="ssche__modal_input" />
               </div>
               <div class="ssche__modal_range_row">
                 <input id="${this.rootId}-end-time" type="time" class="ssche__range-input"/>
-                <input id="${this.rootId}-end-date" type="date" class="ssche" />
+                <input id="${this.rootId}-end-date" type="date" class="ssche__modal_input" />
               </div>
             </div>
           </div>
