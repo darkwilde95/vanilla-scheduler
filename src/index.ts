@@ -381,20 +381,21 @@ class Scheduler {
     if (!heading) throw new Error("Root HTML Element doesn't exist.")
     else {
       heading.innerHTML = `
-        ${this.onlyRead ? '<div></div>' : `
         <div style="display: flex; align-items: center; height: 100%">
-          <button id="${this.rootId}-btn-create" class="ssche__btn ssche__heading_button">
-            ${this.langs[this.lang].actions.create}
-          </button>
+          ${this.onlyRead ? '' : `
+            <button id="${this.rootId}-btn-create" class="ssche__btn ssche__heading_button">
+              ${this.langs[this.lang].actions.create}
+            </button>
+          `}
           ${this.filters ? `
           <button 
             id="${this.rootId}-filters" 
-            style="margin-left: 16px" 
+            style="${this.onlyRead ? '' : 'margin-left: 16px'}" 
             class="ssche__btn ssche__heading_button"
           >
             ${this.langs[this.lang].actions.filter}
           </button>` : ''}
-        </div>`}
+        </div>
         <h1 id="${this.rootId}-title">${this.getTextLang('months')[this.currentMonth]} ${this.currentYear}</h1>
         <div class="ssche__heading_controls">
           <div id="${this.rootId}-left-control" class="ssche__control ssche__control_side">
@@ -900,7 +901,7 @@ class Scheduler {
 
   constructor(config: ConstructorConfig) {
     this.rootId = config.root
-    this.onlyRead = config.onlyRead || false
+    if ('onlyRead' in config) this.onlyRead = config.onlyRead as boolean
     const root = document.getElementById(this.rootId)
     this.sections = [...config.sections]
     this.drawnSections = config.sections

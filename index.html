@@ -27,6 +27,7 @@
         { id: '4', label: 'section 4', propA: 'propA-2', propB: 'propB-1' },
         { id: '5', label: 'section 5', propA: 'propA-2', propB: 'propB-2' },
       ],
+      onlyRead: false,
       lang: 'en',
       /*
         'filters' field is optional. 
@@ -72,8 +73,7 @@
             border: '#f5c2c7'
           }
         }
-      ],
-      onlyRead: false
+      ]
     })
 
     calendar.onEventCreated(eventCreatedData => {
