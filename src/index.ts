@@ -875,6 +875,7 @@ class Scheduler {
     } else return ''
   }
 
+  // Change colors of elements in section rows
   private sectionUISettings = (currentIndex: number) => {
     const grid = document.getElementById(`${this.rootId}-grid`)
     if (!grid) throw new Error('')
@@ -959,6 +960,7 @@ class Scheduler {
     }
   }
 
+  // Update section data
   public updateSectionData = (id: string, sectionData: Section) => {
     const section = this.sections.find(s => s.id === id) as Section
     Object.keys(section).forEach(field => {
