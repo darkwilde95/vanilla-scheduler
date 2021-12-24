@@ -147,8 +147,10 @@ class Scheduler {
   private createEditModal = (event?: DataEvent) => {
 
     // Disable buttons for re-open modals
-    const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
-    createButton.disabled = true
+    if (!this.onlyRead) {
+      const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
+      createButton.disabled = true
+    }
     if (this.filters) {
       const filtersButton = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
       filtersButton.disabled = true
@@ -323,8 +325,10 @@ class Scheduler {
     const body = document.getElementsByTagName('body')[0]
     const modal = document.getElementById(`${this.rootId}-modal`)
     if (modal) body.removeChild(modal)
-    const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
-    createButton.disabled = false
+    if (!this.onlyRead) {
+      const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
+      createButton.disabled = false
+    }
     if (this.filters) {
       const filtersButton = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
       filtersButton.disabled = false
@@ -745,8 +749,10 @@ class Scheduler {
     // Do only if filters have been supplied
     if (this.filters) {
       // Disable buttons for re-open modals
-      const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
-      createButton.disabled = true
+      if (!this.onlyRead) {
+        const createButton = document.getElementById(`${this.rootId}-btn-create`) as HTMLButtonElement
+        createButton.disabled = true
+      }
       const filtersButton = document.getElementById(`${this.rootId}-filters`) as HTMLButtonElement
       filtersButton.disabled = true
 

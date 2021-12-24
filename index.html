@@ -76,6 +76,14 @@
       ]
     })
 
+    calendar.addEvent({
+      id: '1',
+      description: 'example',
+      startDate: '2021-12-08',
+      endDate: '2021-12-16',
+      section: '3'
+    })
+
     calendar.onEventCreated(eventCreatedData => {
       const newEvent = { id: `${id++}`, ...eventCreatedData }
       calendar.addEvent(newEvent)
